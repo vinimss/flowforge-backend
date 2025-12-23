@@ -1,7 +1,6 @@
 {
   "name": "flowforge-license-api",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "vercel dev",
     "deploy": "vercel --prod"
