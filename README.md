@@ -1,34 +1,80 @@
-# FlowForge Pro - License API (MVP)
+# FlowForge Pro - API Backend
 
-Esta é uma API mínima (Vercel) para:
-- POST /login  -> autentica no Supabase Auth e retorna um token próprio + status de licença
-- GET  /validate -> valida token próprio e retorna ok/expires_at
+## Estrutura de Endpoints
 
-## 1) Criar Supabase
-1. Crie um projeto no Supabase
-2. Em **SQL Editor**, rode o arquivo `schema.sql`
-3. Crie usuários em **Authentication > Users** (email + senha)
+```
+POST /api/auth/register  - Criar conta
+POST /api/auth/login     - Login (com controle de IP)
+POST /api/auth/logout    - Logout
+POST /api/checkout       - Criar sessão Stripe Checkout
+POST /api/webhook        - Webhook do Stripe
+GET  /api/license-status - Verificar licença
+POST /api/heartbeat      - Validar sessão ativa
+```
 
-## 2) Criar/renovar licença (manual)
-No Supabase (Table editor), em `licenses` crie/atualize:
-- user_id = id do usuário
-- active = true
-- expires_at = NOW() + interval '30 days' (ex: 2026-01-21T00:00:00Z)
+## Setup
 
-## 3) Deploy na Vercel
-- Suba esta pasta para um GitHub repo
-- Na Vercel, importe o repo e configure as env vars:
+### 1. Supabase
 
-Env Vars obrigatórias:
-- SUPABASE_URL
-- SUPABASE_SERVICE_ROLE_KEY
-- JWT_SECRET (uma string longa, ex: 32+ chars)
+Execute o arquivo `supabase-schema.sql` no SQL Editor do Supabase.
 
-Deploy e pegue sua URL:
-Ex: https://flowforge-license-api.vercel.app
+### 2. Stripe
 
-## 4) Configurar a extensão
-Na aba ⚙️ Configurações, defina:
-API Base URL = https://flowforge-license-api.vercel.app/api
+1. Crie um produto com preço recorrente (mensal)
+2. Configure o webhook para apontar para: `https://seu-dominio.vercel.app/api/webhook`
+3. Eventos do webhook necessários:
+   - `checkout.session.completed`
+   - `customer.subscription.created`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+   - `invoice.payment_succeeded`
+   - `invoice.payment_failed`
 
-Pronto.
+### 3. Vercel
+
+1. Faça deploy do projeto na Vercel
+2. Configure as variáveis de ambiente:
+
+```bash
+vercel secrets add supabase_url "https://seu-projeto.supabase.co"
+vercel secrets add supabase_service_key "sua-service-key"
+vercel secrets add stripe_secret_key "sk_live_..."
+vercel secrets add stripe_webhook_secret "whsec_..."
+```
+
+Ou configure pelo dashboard da Vercel em Settings > Environment Variables.
+
+### 4. Atualizar URL do Webhook no Stripe
+
+Após deploy, atualize a URL do webhook no Stripe Dashboard:
+`https://flowforge-backend-nine.vercel.app/api/webhook`
+
+## Fluxo de Uso
+
+```
+1. Usuário abre extensão
+2. Clica "Criar Conta" → POST /api/auth/register
+3. Clica "Começar Trial" → POST /api/checkout
+4. Redireciona para Stripe Checkout
+5. Stripe processa → POST /api/webhook (ativa licença)
+6. Extensão verifica → GET /api/license-status
+7. Usuário usa a extensão
+8. A cada 1 min → POST /api/heartbeat (valida sessão)
+```
+
+## Proteção Anti-Compartilhamento
+
+- Cada login desativa sessões de outros IPs
+- Heartbeat verifica conflitos de sessão
+- Se detectar uso simultâneo de IPs diferentes, desativa sessão mais antiga
+
+## Proteção Anti-Abuso de Trial
+
+- Fingerprint do dispositivo é registrado
+- Mesmo cartão não consegue fazer trial 2x (Stripe nativo)
+- Limite de 3 trials por IP a cada 30 dias
+- Flag `trial_used` no banco impede múltiplos trials
+
+## Licença
+
+Proprietary - FlowForge Pro
