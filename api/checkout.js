@@ -15,6 +15,51 @@ const PRICE_ID = 'price_1SjPMdA4LY5asU1J4urTPUPp';
 const TRIAL_DAYS = 1;
 const MAX_TRIALS_PER_IP = 3;
 
+// Mapeamento de país para locale do Stripe
+const COUNTRY_TO_LOCALE = {
+  'BR': 'pt-BR',
+  'PT': 'pt-BR',
+  'US': 'en',
+  'GB': 'en',
+  'CA': 'en',
+  'AU': 'en',
+  'ES': 'es',
+  'MX': 'es',
+  'AR': 'es',
+  'CO': 'es',
+  'CL': 'es',
+  'PE': 'es',
+  'VE': 'es',
+  'EC': 'es',
+  'UY': 'es',
+  'PY': 'es',
+  'BO': 'es',
+  'FR': 'fr',
+  'DE': 'de',
+  'IT': 'it',
+  'NL': 'nl',
+  'JP': 'ja',
+  'CN': 'zh',
+  'KR': 'ko',
+  'RU': 'ru',
+};
+
+// Função para detectar país pelo IP usando serviço gratuito
+async function getCountryFromIP(ip) {
+  try {
+    if (!ip || ip === 'unknown' || ip === '127.0.0.1' || ip.startsWith('192.168.')) {
+      return null;
+    }
+    
+    const response = await fetch(`http://ip-api.com/json/${ip}?fields=countryCode`);
+    const data = await response.json();
+    return data.countryCode || null;
+  } catch (e) {
+    console.error('Error getting country from IP:', e);
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   // CORS
   if (req.method === 'OPTIONS') {
@@ -39,6 +84,10 @@ export default async function handler(req, res) {
     const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() 
       || req.headers['x-real-ip'] 
       || 'unknown';
+
+    // Detectar país e locale
+    const country = await getCountryFromIP(ipAddress);
+    const locale = COUNTRY_TO_LOCALE[country] || 'auto';
 
     // Validar sessão
     const { data: session } = await supabase
@@ -79,12 +128,13 @@ export default async function handler(req, res) {
     let trialEligible = true;
     let trialBlockReason = null;
 
-    // 1. Verificar fingerprint
+    // 1. Verificar fingerprint (só fingerprints que COMPLETARAM o checkout)
     if (fingerprint) {
       const { data: existingFingerprint } = await supabase
         .from('trial_fingerprints')
         .select('*')
         .eq('fingerprint', fingerprint)
+        .eq('checkout_completed', true)  // <-- SÓ conta se completou
         .single();
 
       if (existingFingerprint) {
@@ -93,12 +143,13 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2. Verificar limite de trials por IP
+    // 2. Verificar limite de trials por IP (só completados)
     if (trialEligible) {
       const { count } = await supabase
         .from('trial_fingerprints')
         .select('*', { count: 'exact', head: true })
         .eq('ip_address', ipAddress)
+        .eq('checkout_completed', true)  // <-- SÓ conta se completou
         .gte('used_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
 
       if (count >= MAX_TRIALS_PER_IP) {
@@ -149,6 +200,7 @@ export default async function handler(req, res) {
         },
       ],
       mode: 'subscription',
+      locale: locale,  // <-- IDIOMA AUTOMÁTICO BASEADO NO PAÍS
       success_url: success_url || 'https://flowforge.pro/success?session_id={CHECKOUT_SESSION_ID}',
       cancel_url: cancel_url || 'https://flowforge.pro/cancel',
       metadata: {
@@ -156,6 +208,7 @@ export default async function handler(req, res) {
         email: user.email,
         fingerprint: fingerprint || 'unknown',
         ip_address: ipAddress,
+        trial_eligible: trialEligible ? 'true' : 'false',  // <-- Passa pro webhook
       },
       subscription_data: {
         metadata: {
@@ -169,15 +222,8 @@ export default async function handler(req, res) {
     if (trialEligible) {
       checkoutConfig.subscription_data.trial_period_days = TRIAL_DAYS;
       
-      // Registrar fingerprint para bloquear futuros trials
-      if (fingerprint) {
-        await supabase.from('trial_fingerprints').insert({
-          fingerprint,
-          email: user.email,
-          ip_address: ipAddress,
-          user_agent: req.headers['user-agent'] || 'unknown',
-        });
-      }
+      // NÃO registra fingerprint aqui!
+      // O registro vai acontecer no WEBHOOK quando o checkout for completado
     }
 
     // Criar sessão de checkout
@@ -194,6 +240,8 @@ export default async function handler(req, res) {
         trial_eligible: trialEligible,
         trial_block_reason: trialBlockReason,
         fingerprint,
+        country,
+        locale,
       },
     });
 

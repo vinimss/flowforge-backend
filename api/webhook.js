@@ -97,6 +97,9 @@ async function handleCheckoutComplete(session) {
   const email = session.metadata?.email || session.customer_email;
   const customerId = session.customer;
   const subscriptionId = session.subscription;
+  const fingerprint = session.metadata?.fingerprint;
+  const ipAddress = session.metadata?.ip_address;
+  const trialEligible = session.metadata?.trial_eligible === 'true';
 
   if (!userId) {
     console.error('No user_id in checkout session metadata');
@@ -138,6 +141,40 @@ async function handleCheckoutComplete(session) {
     await supabase.from('licenses').insert(licenseData);
   }
 
+  // ============================================
+  // REGISTRAR FINGERPRINT AQUI (após pagamento confirmado!)
+  // ============================================
+  if (isTrialing && fingerprint && fingerprint !== 'unknown') {
+    // Verificar se já existe
+    const { data: existingFp } = await supabase
+      .from('trial_fingerprints')
+      .select('*')
+      .eq('fingerprint', fingerprint)
+      .single();
+
+    if (existingFp) {
+      // Atualizar para marcar como completado
+      await supabase
+        .from('trial_fingerprints')
+        .update({ 
+          checkout_completed: true,
+          email: email,
+        })
+        .eq('fingerprint', fingerprint);
+    } else {
+      // Inserir novo
+      await supabase.from('trial_fingerprints').insert({
+        fingerprint,
+        email: email,
+        ip_address: ipAddress || 'unknown',
+        user_agent: 'webhook',
+        checkout_completed: true,  // <-- Marca como completado
+      });
+    }
+
+    console.log(`Trial fingerprint registered: ${fingerprint}`);
+  }
+
   // Log do evento
   await supabase.from('event_logs').insert({
     event_type: 'checkout_completed',
@@ -149,6 +186,7 @@ async function handleCheckoutComplete(session) {
       customer_id: customerId,
       is_trialing: isTrialing,
       expires_at: currentPeriodEnd.toISOString(),
+      fingerprint_registered: isTrialing && fingerprint ? true : false,
     },
   });
 
@@ -164,7 +202,7 @@ async function handleSubscriptionUpdate(subscription) {
   const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
 
   // Buscar licença pelo stripe_subscription_id
-  const { data: license } = await supabase
+  let { data: license } = await supabase
     .from('licenses')
     .select('*')
     .eq('stripe_subscription_id', subscriptionId)
@@ -182,9 +220,9 @@ async function handleSubscriptionUpdate(subscription) {
       console.log('No license found for subscription:', subscriptionId);
       return;
     }
+    
+    license = licenseByCustomer;
   }
-
-  const licenseToUpdate = license || licenseByCustomer;
 
   // Atualizar baseado no status
   const isActive = ['active', 'trialing'].includes(status);
@@ -199,13 +237,13 @@ async function handleSubscriptionUpdate(subscription) {
       stripe_subscription_id: subscriptionId,
       canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
     })
-    .eq('id', licenseToUpdate.id);
+    .eq('id', license.id);
 
   // Log do evento
   await supabase.from('event_logs').insert({
     event_type: 'subscription_updated',
-    user_id: licenseToUpdate.user_id,
-    email: licenseToUpdate.email,
+    user_id: license.user_id,
+    email: license.email,
     details: {
       subscription_id: subscriptionId,
       status,
