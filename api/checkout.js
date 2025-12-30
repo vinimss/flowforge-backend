@@ -15,51 +15,6 @@ const PRICE_ID = 'price_1SjPMdA4LY5asU1J4urTPUPp';
 const TRIAL_DAYS = 1;
 const MAX_TRIALS_PER_IP = 3;
 
-// Mapeamento de país para locale do Stripe
-const COUNTRY_TO_LOCALE = {
-  'BR': 'pt-BR',
-  'PT': 'pt-BR',
-  'US': 'en',
-  'GB': 'en',
-  'CA': 'en',
-  'AU': 'en',
-  'ES': 'es',
-  'MX': 'es',
-  'AR': 'es',
-  'CO': 'es',
-  'CL': 'es',
-  'PE': 'es',
-  'VE': 'es',
-  'EC': 'es',
-  'UY': 'es',
-  'PY': 'es',
-  'BO': 'es',
-  'FR': 'fr',
-  'DE': 'de',
-  'IT': 'it',
-  'NL': 'nl',
-  'JP': 'ja',
-  'CN': 'zh',
-  'KR': 'ko',
-  'RU': 'ru',
-};
-
-// Função para detectar país pelo IP usando serviço gratuito
-async function getCountryFromIP(ip) {
-  try {
-    if (!ip || ip === 'unknown' || ip === '127.0.0.1' || ip.startsWith('192.168.')) {
-      return null;
-    }
-    
-    const response = await fetch(`http://ip-api.com/json/${ip}?fields=countryCode`);
-    const data = await response.json();
-    return data.countryCode || null;
-  } catch (e) {
-    console.error('Error getting country from IP:', e);
-    return null;
-  }
-}
-
 export default async function handler(req, res) {
   // CORS
   if (req.method === 'OPTIONS') {
@@ -85,11 +40,7 @@ export default async function handler(req, res) {
       || req.headers['x-real-ip'] 
       || 'unknown';
 
-    // Detectar país e locale
-    const country = await getCountryFromIP(ipAddress);
-    const locale = COUNTRY_TO_LOCALE[country] || 'auto';
-
-    // Validar sessão
+    // Validar sessao
     const { data: session } = await supabase
       .from('user_sessions')
       .select('*, users(*)')
@@ -103,7 +54,7 @@ export default async function handler(req, res) {
 
     const user = session.users;
 
-    // Verificar se já tem licença ativa
+    // Verificar se ja tem licenca ativa
     const { data: existingLicense } = await supabase
       .from('licenses')
       .select('*')
@@ -128,13 +79,13 @@ export default async function handler(req, res) {
     let trialEligible = true;
     let trialBlockReason = null;
 
-    // 1. Verificar fingerprint (só fingerprints que COMPLETARAM o checkout)
+    // 1. Verificar fingerprint (so conta se checkout foi completado)
     if (fingerprint) {
       const { data: existingFingerprint } = await supabase
         .from('trial_fingerprints')
         .select('*')
         .eq('fingerprint', fingerprint)
-        .eq('checkout_completed', true)  // <-- SÓ conta se completou
+        .eq('checkout_completed', true)
         .single();
 
       if (existingFingerprint) {
@@ -143,13 +94,13 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2. Verificar limite de trials por IP (só completados)
+    // 2. Verificar limite de trials por IP (so completados)
     if (trialEligible) {
       const { count } = await supabase
         .from('trial_fingerprints')
         .select('*', { count: 'exact', head: true })
         .eq('ip_address', ipAddress)
-        .eq('checkout_completed', true)  // <-- SÓ conta se completou
+        .eq('checkout_completed', true)
         .gte('used_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
 
       if (count >= MAX_TRIALS_PER_IP) {
@@ -158,7 +109,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Verificar se usuário já usou trial
+    // 3. Verificar se usuario ja usou trial
     if (trialEligible && existingLicense?.trial_used) {
       trialEligible = false;
       trialBlockReason = 'Trial already used on this account';
@@ -168,7 +119,6 @@ export default async function handler(req, res) {
     let stripeCustomerId = existingLicense?.stripe_customer_id;
 
     if (!stripeCustomerId) {
-      // Verificar se já existe customer com esse email
       const existingCustomers = await stripe.customers.list({
         email: user.email,
         limit: 1,
@@ -177,7 +127,6 @@ export default async function handler(req, res) {
       if (existingCustomers.data.length > 0) {
         stripeCustomerId = existingCustomers.data[0].id;
       } else {
-        // Criar novo customer
         const customer = await stripe.customers.create({
           email: user.email,
           metadata: {
@@ -200,7 +149,6 @@ export default async function handler(req, res) {
         },
       ],
       mode: 'subscription',
-      locale: locale,  // <-- IDIOMA AUTOMÁTICO BASEADO NO PAÍS
       success_url: success_url || 'https://flowforge.pro/success?session_id={CHECKOUT_SESSION_ID}',
       cancel_url: cancel_url || 'https://flowforge.pro/cancel',
       metadata: {
@@ -208,7 +156,7 @@ export default async function handler(req, res) {
         email: user.email,
         fingerprint: fingerprint || 'unknown',
         ip_address: ipAddress,
-        trial_eligible: trialEligible ? 'true' : 'false',  // <-- Passa pro webhook
+        trial_eligible: trialEligible ? 'true' : 'false',
       },
       subscription_data: {
         metadata: {
@@ -218,15 +166,14 @@ export default async function handler(req, res) {
       },
     };
 
-    // Adicionar trial se elegível
+    // Adicionar trial se elegivel
     if (trialEligible) {
       checkoutConfig.subscription_data.trial_period_days = TRIAL_DAYS;
-      
-      // NÃO registra fingerprint aqui!
-      // O registro vai acontecer no WEBHOOK quando o checkout for completado
+      // IMPORTANTE: NAO registra fingerprint aqui!
+      // O registro acontece no WEBHOOK apos pagamento confirmado
     }
 
-    // Criar sessão de checkout
+    // Criar sessao de checkout
     const checkoutSession = await stripe.checkout.sessions.create(checkoutConfig);
 
     // Log do evento
@@ -240,8 +187,6 @@ export default async function handler(req, res) {
         trial_eligible: trialEligible,
         trial_block_reason: trialBlockReason,
         fingerprint,
-        country,
-        locale,
       },
     });
 
