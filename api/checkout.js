@@ -150,7 +150,7 @@ export default async function handler(req, res) {
       ],
       mode: 'subscription',
       success_url: success_url || 'https://flowforge-backend-rust.vercel.app/api/success?session_id={CHECKOUT_SESSION_ID}',
-      cancel_url: cancel_url || 'https://flowforge.pro/cancel',
+      cancel_url: cancel_url || 'https://flowforge-backend-rust.vercel.app/api/cancel',
       metadata: {
         user_id: user.id,
         email: user.email,
