@@ -85,6 +85,20 @@ export default async function handler(req, res) {
             font-size: 18px;
         }
         
+        .warning-box {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .warning-box p {
+            color: #ffc107;
+            font-size: 14px;
+            margin: 0;
+        }
+        
         .instructions {
             background: rgba(255, 255, 255, 0.05);
             border-radius: 12px;
@@ -128,9 +142,27 @@ export default async function handler(req, res) {
         }
         
         .footer {
-            margin-top: 30px;
+            margin-top: 20px;
             font-size: 14px;
             color: #666;
+        }
+        
+        .shortcut {
+            background: rgba(255,255,255,0.1);
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .close-hint {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(255, 107, 107, 0.1);
+            border-radius: 8px;
+            color: #ff6b6b;
+            font-size: 14px;
         }
     </style>
 </head>
@@ -148,7 +180,12 @@ export default async function handler(req, res) {
         
         <div class="trial-info">
             <h3>✨ Teste Grátis Ativado</h3>
-            <p>Você tem <span class="highlight">1 dia grátis</span> para experimentar todas as funcionalidades. Após o período de teste, será cobrado 9,90 USD/mês.</p>
+            <p>Você tem <span class="highlight">1 dia grátis</span> para experimentar todas as funcionalidades.</p>
+            <p style="margin-top: 10px;">Após o período de teste, será cobrado <span class="highlight">9,90 USD/mês</span>.</p>
+        </div>
+        
+        <div class="warning-box">
+            <p>⚠️ <strong>Importante:</strong> O teste grátis é único por dispositivo. Se você trocar de cartão ou criar nova conta, não terá direito a outro teste grátis.</p>
         </div>
         
         <div class="instructions">
@@ -161,14 +198,29 @@ export default async function handler(req, res) {
             </ol>
         </div>
         
-        <button class="btn" onclick="window.close();">
-            Fechar e Usar a Extensão
+        <button class="btn" onclick="tryClose()">
+            Fechar esta aba
         </button>
         
+        <div id="closeHint" class="close-hint">
+            O navegador bloqueou o fechamento automático.<br>
+            Use <span class="shortcut">⌘W</span> (Mac) ou <span class="shortcut">Ctrl+W</span> (Windows) para fechar.
+        </div>
+        
         <p class="footer">
-            Você pode fechar esta aba com segurança.
+            Dica: <span class="shortcut">⌘W</span> (Mac) ou <span class="shortcut">Ctrl+W</span> (Windows)
         </p>
     </div>
+    
+    <script>
+        function tryClose() {
+            window.close();
+            // Se não fechou após 500ms, mostra a dica
+            setTimeout(function() {
+                document.getElementById('closeHint').style.display = 'block';
+            }, 500);
+        }
+    </script>
 </body>
 </html>`;
 
