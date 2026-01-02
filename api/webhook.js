@@ -79,7 +79,7 @@ export default async function handler(req, res) {
       }
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        console.log('Unhandled event type: ' + event.type);
     }
 
     return res.status(200).json({ received: true });
@@ -168,11 +168,11 @@ async function handleCheckoutComplete(session) {
         email: email,
         ip_address: ipAddress || 'unknown',
         user_agent: 'webhook',
-        checkout_completed: true,  // <-- Marca como completado
+        checkout_completed: true,
       });
     }
 
-    console.log(`Trial fingerprint registered: ${fingerprint}`);
+    console.log('Trial fingerprint registered: ' + fingerprint);
   }
 
   // Log do evento
@@ -190,7 +190,7 @@ async function handleCheckoutComplete(session) {
     },
   });
 
-  console.log(`License activated for user ${userId}, expires: ${currentPeriodEnd}`);
+  console.log('License activated for user ' + userId + ', expires: ' + currentPeriodEnd);
 }
 
 async function handleSubscriptionUpdate(subscription) {
@@ -199,8 +199,30 @@ async function handleSubscriptionUpdate(subscription) {
   const customerId = subscription.customer;
   const subscriptionId = subscription.id;
   const status = subscription.status;
-  const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
-  const canceledAt = subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null;
+  
+  // Validar current_period_end
+  let currentPeriodEnd = null;
+  if (subscription.current_period_end && !isNaN(subscription.current_period_end)) {
+    const tempDate = new Date(subscription.current_period_end * 1000);
+    if (!isNaN(tempDate.getTime())) {
+      currentPeriodEnd = tempDate;
+    }
+  }
+  
+  // Validar canceled_at
+  let canceledAt = null;
+  if (subscription.canceled_at && !isNaN(subscription.canceled_at)) {
+    const tempDate = new Date(subscription.canceled_at * 1000);
+    if (!isNaN(tempDate.getTime())) {
+      canceledAt = tempDate;
+    }
+  }
+
+  // Se não tem data de expiração válida, não atualiza
+  if (!currentPeriodEnd) {
+    console.error('Invalid current_period_end for subscription:', subscriptionId);
+    return;
+  }
 
   // Buscar licença pelo stripe_subscription_id
   let { data: license } = await supabase
@@ -247,13 +269,13 @@ async function handleSubscriptionUpdate(subscription) {
     email: license.email,
     details: {
       subscription_id: subscriptionId,
-      status,
+      status: status,
       canceled_at: canceledAt ? canceledAt.toISOString() : null,
       expires_at: currentPeriodEnd.toISOString(),
     },
   });
 
-  console.log('Subscription ${subscriptionId} updated: status=${status}, canceled_at=${canceledAt}');
+  console.log('Subscription ' + subscriptionId + ' updated: status=' + status + ', canceled_at=' + canceledAt);
 }
 
 async function handleSubscriptionCanceled(subscription) {
@@ -287,7 +309,7 @@ async function handleSubscriptionCanceled(subscription) {
       },
     });
 
-    console.log(`License deactivated for subscription ${subscriptionId}`);
+    console.log('License deactivated for subscription ' + subscriptionId);
   }
 }
 
@@ -316,7 +338,7 @@ async function handlePaymentSucceeded(invoice) {
       .update({
         active: true,
         expires_at: currentPeriodEnd.toISOString(),
-        plan_type: 'monthly', // Após trial, é monthly
+        plan_type: 'monthly',
       })
       .eq('id', license.id);
 
@@ -333,7 +355,7 @@ async function handlePaymentSucceeded(invoice) {
       },
     });
 
-    console.log(`Payment succeeded, license extended to ${currentPeriodEnd}`);
+    console.log('Payment succeeded, license extended to ' + currentPeriodEnd);
   }
 }
 
@@ -364,6 +386,6 @@ async function handlePaymentFailed(invoice) {
       },
     });
 
-    console.log(`Payment failed for subscription ${subscriptionId}`);
+    console.log('Payment failed for subscription ' + subscriptionId);
   }
 }
