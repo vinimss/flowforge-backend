@@ -24,8 +24,9 @@ export default async function handler(req, res) {
       benefit3: "Background processing",
       benefit4: "Priority support",
       benefit5: "<span class=\"highlight\">1 free day</span> to test everything!",
-      closeMsg: "You can close this tab",
-      footerTip: "Use <span class=\"shortcut\">⌘W</span> (Mac) or <span class=\"shortcut\">Ctrl+W</span> (Windows) to close."
+      closeBtn: "Close this tab",
+      closeHint: "The browser blocked automatic closing.<br>Use <span class=\"shortcut\">⌘W</span> (Mac) or <span class=\"shortcut\">Ctrl+W</span> (Windows) to close.",
+      footerTip: "Tip: <span class=\"shortcut\">⌘W</span> (Mac) or <span class=\"shortcut\">Ctrl+W</span> (Windows)"
     },
     pt: {
       title: "Pagamento Cancelado - FlowForge Pro",
@@ -40,8 +41,9 @@ export default async function handler(req, res) {
       benefit3: "Processamento em segundo plano",
       benefit4: "Suporte prioritário",
       benefit5: "<span class=\"highlight\">1 dia grátis</span> para testar tudo!",
-      closeMsg: "Pode fechar esta aba",
-      footerTip: "Use <span class=\"shortcut\">⌘W</span> (Mac) ou <span class=\"shortcut\">Ctrl+W</span> (Windows) para fechar."
+      closeBtn: "Fechar esta aba",
+      closeHint: "O navegador bloqueou o fechamento automático.<br>Use <span class=\"shortcut\">⌘W</span> (Mac) ou <span class=\"shortcut\">Ctrl+W</span> (Windows) para fechar.",
+      footerTip: "Dica: <span class=\"shortcut\">⌘W</span> (Mac) ou <span class=\"shortcut\">Ctrl+W</span> (Windows)"
     },
     es: {
       title: "Pago Cancelado - FlowForge Pro",
@@ -56,8 +58,9 @@ export default async function handler(req, res) {
       benefit3: "Procesamiento en segundo plano",
       benefit4: "Soporte prioritario",
       benefit5: "<span class=\"highlight\">1 día gratis</span> para probar todo!",
-      closeMsg: "Puedes cerrar esta pestaña",
-      footerTip: "Usa <span class=\"shortcut\">⌘W</span> (Mac) o <span class=\"shortcut\">Ctrl+W</span> (Windows) para cerrar."
+      closeBtn: "Cerrar esta pestaña",
+      closeHint: "El navegador bloqueó el cierre automático.<br>Usa <span class=\"shortcut\">⌘W</span> (Mac) o <span class=\"shortcut\">Ctrl+W</span> (Windows) para cerrar.",
+      footerTip: "Consejo: <span class=\"shortcut\">⌘W</span> (Mac) o <span class=\"shortcut\">Ctrl+W</span> (Windows)"
     }
   };
 
@@ -170,19 +173,28 @@ export default async function handler(req, res) {
             color: #00d9a5;
         }
         
-        .close-message {
+        .btn {
+            display: inline-block;
             background: rgba(255, 255, 255, 0.1);
             color: white;
             padding: 15px 40px;
             border-radius: 30px;
+            text-decoration: none;
             font-weight: 600;
             font-size: 16px;
             margin-top: 20px;
-            display: inline-block;
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.15);
         }
         
         .footer {
-            margin-top: 30px;
+            margin-top: 20px;
             font-size: 14px;
             color: #666;
         }
@@ -192,6 +204,16 @@ export default async function handler(req, res) {
             padding: 3px 8px;
             border-radius: 4px;
             font-family: monospace;
+            font-size: 14px;
+        }
+        
+        .close-hint {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(255, 107, 107, 0.1);
+            border-radius: 8px;
+            color: #ff6b6b;
             font-size: 14px;
         }
     </style>
@@ -225,14 +247,27 @@ export default async function handler(req, res) {
             </ul>
         </div>
         
-        <div class="close-message">
-            ${t.closeMsg}
+        <button class="btn" onclick="tryClose()">
+            ${t.closeBtn}
+        </button>
+        
+        <div id="closeHint" class="close-hint">
+            ${t.closeHint}
         </div>
         
         <p class="footer">
             ${t.footerTip}
         </p>
     </div>
+    
+    <script>
+        function tryClose() {
+            window.close();
+            setTimeout(function() {
+                document.getElementById('closeHint').style.display = 'block';
+            }, 500);
+        }
+    </script>
 </body>
 </html>`;
 
