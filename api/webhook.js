@@ -200,6 +200,7 @@ async function handleSubscriptionUpdate(subscription) {
   const subscriptionId = subscription.id;
   const status = subscription.status;
   const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+  const canceledAt = subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null;
 
   // Buscar licença pelo stripe_subscription_id
   let { data: license } = await supabase
@@ -235,7 +236,7 @@ async function handleSubscriptionUpdate(subscription) {
       expires_at: currentPeriodEnd.toISOString(),
       plan_type: planType,
       stripe_subscription_id: subscriptionId,
-      canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
+      canceled_at: canceledAt ? canceledAt.toISOString() : null,
     })
     .eq('id', license.id);
 
@@ -247,11 +248,12 @@ async function handleSubscriptionUpdate(subscription) {
     details: {
       subscription_id: subscriptionId,
       status,
+      canceled_at: canceledAt ? canceledAt.toISOString() : null,
       expires_at: currentPeriodEnd.toISOString(),
     },
   });
 
-  console.log(`Subscription ${subscriptionId} updated: status=${status}`);
+  console.log(`Subscription ${subscriptionId} updated: status=${status}, canceled_at=${canceledAt}`);
 }
 
 async function handleSubscriptionCanceled(subscription) {
