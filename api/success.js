@@ -1,11 +1,77 @@
 // api/success.js
 export default async function handler(req, res) {
+  // Detectar idioma pelo header Accept-Language
+  const acceptLanguage = req.headers['accept-language'] || 'en';
+  let lang = 'en';
+  
+  if (acceptLanguage.includes('pt')) {
+    lang = 'pt';
+  } else if (acceptLanguage.includes('es')) {
+    lang = 'es';
+  }
+
+  const translations = {
+    en: {
+      title: "Payment Confirmed - FlowForge Pro",
+      heading: "🎉 Payment Confirmed!",
+      subtitle: "Your <span class=\"highlight\">FlowForge Pro</span> subscription has been activated successfully.",
+      trialTitle: "✨ Free Trial Activated",
+      trialDesc: "You have <span class=\"highlight\">1 free day</span> to try all features.",
+      trialPrice: "After the trial period, you will be charged <span class=\"highlight\">9.90 USD/month</span>.",
+      warningText: "⚠️ <strong>Important:</strong> The free trial is unique per device. If you change your card or create a new account, you will not be entitled to another free trial.",
+      stepsTitle: "📋 Next steps:",
+      step1: "Close this tab",
+      step2: "Click on the <span class=\"highlight\">FlowForge Pro</span> extension icon in Chrome",
+      step3: "If necessary, logout and login again",
+      step4: "Enjoy unlimited automation!",
+      closeBtn: "Close this tab",
+      closeHint: "The browser blocked automatic closing.<br>Use <span class=\"shortcut\">⌘W</span> (Mac) or <span class=\"shortcut\">Ctrl+W</span> (Windows) to close.",
+      footerTip: "Tip: <span class=\"shortcut\">⌘W</span> (Mac) or <span class=\"shortcut\">Ctrl+W</span> (Windows)"
+    },
+    pt: {
+      title: "Pagamento Confirmado - FlowForge Pro",
+      heading: "🎉 Pagamento Confirmado!",
+      subtitle: "Sua assinatura do <span class=\"highlight\">FlowForge Pro</span> foi ativada com sucesso.",
+      trialTitle: "✨ Teste Grátis Ativado",
+      trialDesc: "Você tem <span class=\"highlight\">1 dia grátis</span> para experimentar todas as funcionalidades.",
+      trialPrice: "Após o período de teste, será cobrado <span class=\"highlight\">9,90 USD/mês</span>.",
+      warningText: "⚠️ <strong>Importante:</strong> O teste grátis é único por dispositivo. Se você trocar de cartão ou criar nova conta, não terá direito a outro teste grátis.",
+      stepsTitle: "📋 Próximos passos:",
+      step1: "Feche esta aba",
+      step2: "Clique no ícone da extensão <span class=\"highlight\">FlowForge Pro</span> no Chrome",
+      step3: "Se necessário, faça logout e login novamente",
+      step4: "Aproveite a automação ilimitada!",
+      closeBtn: "Fechar esta aba",
+      closeHint: "O navegador bloqueou o fechamento automático.<br>Use <span class=\"shortcut\">⌘W</span> (Mac) ou <span class=\"shortcut\">Ctrl+W</span> (Windows) para fechar.",
+      footerTip: "Dica: <span class=\"shortcut\">⌘W</span> (Mac) ou <span class=\"shortcut\">Ctrl+W</span> (Windows)"
+    },
+    es: {
+      title: "Pago Confirmado - FlowForge Pro",
+      heading: "🎉 ¡Pago Confirmado!",
+      subtitle: "Tu suscripción de <span class=\"highlight\">FlowForge Pro</span> ha sido activada con éxito.",
+      trialTitle: "✨ Prueba Gratis Activada",
+      trialDesc: "Tienes <span class=\"highlight\">1 día gratis</span> para probar todas las funcionalidades.",
+      trialPrice: "Después del período de prueba, se cobrará <span class=\"highlight\">9,90 USD/mes</span>.",
+      warningText: "⚠️ <strong>Importante:</strong> La prueba gratis es única por dispositivo. Si cambias de tarjeta o creas una nueva cuenta, no tendrás derecho a otra prueba gratis.",
+      stepsTitle: "📋 Próximos pasos:",
+      step1: "Cierra esta pestaña",
+      step2: "Haz clic en el icono de la extensión <span class=\"highlight\">FlowForge Pro</span> en Chrome",
+      step3: "Si es necesario, cierra sesión e inicia sesión nuevamente",
+      step4: "¡Disfruta de la automatización ilimitada!",
+      closeBtn: "Cerrar esta pestaña",
+      closeHint: "El navegador bloqueó el cierre automático.<br>Usa <span class=\"shortcut\">⌘W</span> (Mac) o <span class=\"shortcut\">Ctrl+W</span> (Windows) para cerrar.",
+      footerTip: "Consejo: <span class=\"shortcut\">⌘W</span> (Mac) o <span class=\"shortcut\">Ctrl+W</span> (Windows)"
+    }
+  };
+
+  const t = translations[lang];
+
   const html = `<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="${lang}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pagamento Confirmado - FlowForge Pro</title>
+    <title>${t.title}</title>
     <style>
         * {
             margin: 0;
@@ -174,48 +240,46 @@ export default async function handler(req, res) {
             </svg>
         </div>
         
-        <h1>🎉 Pagamento Confirmado!</h1>
+        <h1>${t.heading}</h1>
         
-        <p>Sua assinatura do <span class="highlight">FlowForge Pro</span> foi ativada com sucesso.</p>
+        <p>${t.subtitle}</p>
         
         <div class="trial-info">
-            <h3>✨ Teste Grátis Ativado</h3>
-            <p>Você tem <span class="highlight">1 dia grátis</span> para experimentar todas as funcionalidades.</p>
-            <p style="margin-top: 10px;">Após o período de teste, será cobrado <span class="highlight">9,90 USD/mês</span>.</p>
+            <h3>${t.trialTitle}</h3>
+            <p>${t.trialDesc}</p>
+            <p style="margin-top: 10px;">${t.trialPrice}</p>
         </div>
         
         <div class="warning-box">
-            <p>⚠️ <strong>Importante:</strong> O teste grátis é único por dispositivo. Se você trocar de cartão ou criar nova conta, não terá direito a outro teste grátis.</p>
+            <p>${t.warningText}</p>
         </div>
         
         <div class="instructions">
-            <h3>📋 Próximos passos:</h3>
+            <h3>${t.stepsTitle}</h3>
             <ol>
-                <li>Feche esta aba</li>
-                <li>Clique no ícone da extensão <span class="highlight">FlowForge Pro</span> no Chrome</li>
-                <li>Se necessário, faça logout e login novamente</li>
-                <li>Aproveite a automação ilimitada!</li>
+                <li>${t.step1}</li>
+                <li>${t.step2}</li>
+                <li>${t.step3}</li>
+                <li>${t.step4}</li>
             </ol>
         </div>
         
         <button class="btn" onclick="tryClose()">
-            Fechar esta aba
+            ${t.closeBtn}
         </button>
         
         <div id="closeHint" class="close-hint">
-            O navegador bloqueou o fechamento automático.<br>
-            Use <span class="shortcut">⌘W</span> (Mac) ou <span class="shortcut">Ctrl+W</span> (Windows) para fechar.
+            ${t.closeHint}
         </div>
         
         <p class="footer">
-            Dica: <span class="shortcut">⌘W</span> (Mac) ou <span class="shortcut">Ctrl+W</span> (Windows)
+            ${t.footerTip}
         </p>
     </div>
     
     <script>
         function tryClose() {
             window.close();
-            // Se não fechou após 500ms, mostra a dica
             setTimeout(function() {
                 document.getElementById('closeHint').style.display = 'block';
             }, 500);

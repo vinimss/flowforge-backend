@@ -1,11 +1,74 @@
 // api/cancel.js
 export default async function handler(req, res) {
+  // Detectar idioma pelo header Accept-Language
+  const acceptLanguage = req.headers['accept-language'] || 'en';
+  let lang = 'en';
+  
+  if (acceptLanguage.includes('pt')) {
+    lang = 'pt';
+  } else if (acceptLanguage.includes('es')) {
+    lang = 'es';
+  }
+
+  const translations = {
+    en: {
+      title: "Payment Canceled - FlowForge Pro",
+      heading: "Payment Canceled",
+      subtitle: "You canceled the payment process.",
+      noCharge: "Don't worry, no charge was made.",
+      changeTitle: "💡 Changed your mind?",
+      changeDesc: "You can start your free trial anytime by clicking on the <span class=\"highlight\">FlowForge Pro</span> extension.",
+      missingTitle: "What you're missing:",
+      benefit1: "Unlimited prompt automation",
+      benefit2: "Batch video downloads",
+      benefit3: "Background processing",
+      benefit4: "Priority support",
+      benefit5: "<span class=\"highlight\">1 free day</span> to test everything!",
+      closeMsg: "You can close this tab",
+      footerTip: "Use <span class=\"shortcut\">⌘W</span> (Mac) or <span class=\"shortcut\">Ctrl+W</span> (Windows) to close."
+    },
+    pt: {
+      title: "Pagamento Cancelado - FlowForge Pro",
+      heading: "Pagamento Cancelado",
+      subtitle: "Você cancelou o processo de pagamento.",
+      noCharge: "Não se preocupe, nenhuma cobrança foi realizada.",
+      changeTitle: "💡 Mudou de ideia?",
+      changeDesc: "Você pode iniciar o teste grátis a qualquer momento clicando na extensão <span class=\"highlight\">FlowForge Pro</span>.",
+      missingTitle: "O que você está perdendo:",
+      benefit1: "Automação ilimitada de prompts",
+      benefit2: "Download de vídeos em lote",
+      benefit3: "Processamento em segundo plano",
+      benefit4: "Suporte prioritário",
+      benefit5: "<span class=\"highlight\">1 dia grátis</span> para testar tudo!",
+      closeMsg: "Pode fechar esta aba",
+      footerTip: "Use <span class=\"shortcut\">⌘W</span> (Mac) ou <span class=\"shortcut\">Ctrl+W</span> (Windows) para fechar."
+    },
+    es: {
+      title: "Pago Cancelado - FlowForge Pro",
+      heading: "Pago Cancelado",
+      subtitle: "Has cancelado el proceso de pago.",
+      noCharge: "No te preocupes, no se realizó ningún cargo.",
+      changeTitle: "💡 ¿Cambiaste de opinión?",
+      changeDesc: "Puedes iniciar tu prueba gratis en cualquier momento haciendo clic en la extensión <span class=\"highlight\">FlowForge Pro</span>.",
+      missingTitle: "Lo que te estás perdiendo:",
+      benefit1: "Automatización ilimitada de prompts",
+      benefit2: "Descarga de videos en lote",
+      benefit3: "Procesamiento en segundo plano",
+      benefit4: "Soporte prioritario",
+      benefit5: "<span class=\"highlight\">1 día gratis</span> para probar todo!",
+      closeMsg: "Puedes cerrar esta pestaña",
+      footerTip: "Usa <span class=\"shortcut\">⌘W</span> (Mac) o <span class=\"shortcut\">Ctrl+W</span> (Windows) para cerrar."
+    }
+  };
+
+  const t = translations[lang];
+
   const html = `<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="${lang}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pagamento Cancelado - FlowForge Pro</title>
+    <title>${t.title}</title>
     <style>
         * {
             margin: 0;
@@ -141,33 +204,33 @@ export default async function handler(req, res) {
             </svg>
         </div>
         
-        <h1>Pagamento Cancelado</h1>
+        <h1>${t.heading}</h1>
         
-        <p>Você cancelou o processo de pagamento.</p>
-        <p>Não se preocupe, nenhuma cobrança foi realizada.</p>
+        <p>${t.subtitle}</p>
+        <p>${t.noCharge}</p>
         
         <div class="info-box">
-            <h3>💡 Mudou de ideia?</h3>
-            <p>Você pode iniciar o teste grátis a qualquer momento clicando na extensão <span class="highlight">FlowForge Pro</span>.</p>
+            <h3>${t.changeTitle}</h3>
+            <p>${t.changeDesc}</p>
         </div>
         
         <div class="benefits">
-            <h3>O que você está perdendo:</h3>
+            <h3>${t.missingTitle}</h3>
             <ul>
-                <li>Automação ilimitada de prompts</li>
-                <li>Download de vídeos em lote</li>
-                <li>Processamento em segundo plano</li>
-                <li>Suporte prioritário</li>
-                <li><span class="highlight">1 dia grátis</span> para testar tudo!</li>
+                <li>${t.benefit1}</li>
+                <li>${t.benefit2}</li>
+                <li>${t.benefit3}</li>
+                <li>${t.benefit4}</li>
+                <li>${t.benefit5}</li>
             </ul>
         </div>
         
         <div class="close-message">
-            Pode fechar esta aba
+            ${t.closeMsg}
         </div>
         
         <p class="footer">
-            Use <span class="shortcut">⌘W</span> (Mac) ou <span class="shortcut">Ctrl+W</span> (Windows) para fechar.
+            ${t.footerTip}
         </p>
     </div>
 </body>
