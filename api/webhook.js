@@ -253,7 +253,7 @@ async function handleSubscriptionUpdate(subscription) {
     },
   });
 
-  console.log(`Subscription ${subscriptionId} updated: status=${status}, canceled_at=${canceledAt}`);
+  console.log('Subscription ${subscriptionId} updated: status=${status}, canceled_at=${canceledAt}');
 }
 
 async function handleSubscriptionCanceled(subscription) {
