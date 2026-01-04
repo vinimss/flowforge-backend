@@ -1,16 +1,23 @@
 // api/password.js - Handles forgot password and reset password
 import { createClient } from '@supabase/supabase-js';
+import bcrypt from 'bcryptjs';
 
-const supabase = createClient(
+// Service client for database operations
+const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
+
+// Auth client (uses service key but works for password reset)
+const supabase = supabaseAdmin;
 
 export default async function handler(req, res) {
   const action = req.query.action || 'reset';
 
   if (action === 'forgot') {
     return handleForgotPassword(req, res);
+  } else if (action === 'update' && req.method === 'POST') {
+    return handleUpdatePassword(req, res);
   } else {
     return handleResetPassword(req, res);
   }
@@ -46,8 +53,8 @@ async function handleForgotPassword(req, res) {
     });
 
     if (error) {
-      console.error('Error sending reset email:', error);
-      return res.status(500).json({ error: 'Failed to send reset email' });
+      console.error('Error sending reset email:', error.message, error.status, JSON.stringify(error));
+      return res.status(500).json({ error: 'Failed to send reset email', details: error.message });
     }
 
     await supabase.from('event_logs').insert({
@@ -60,6 +67,76 @@ async function handleForgotPassword(req, res) {
 
   } catch (error) {
     console.error('Error in forgot-password:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+// ===== UPDATE PASSWORD (called from reset form) =====
+async function handleUpdatePassword(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  try {
+    const { email, password, access_token } = req.body;
+
+    if (!password || password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    if (!access_token) {
+      return res.status(400).json({ error: 'Access token required' });
+    }
+
+    // 1. Update password in Supabase Auth
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const anonKey = process.env.SUPABASE_ANON_KEY;
+
+    const authResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${access_token}`,
+        'apikey': anonKey
+      },
+      body: JSON.stringify({ password })
+    });
+
+    if (!authResponse.ok) {
+      const errorData = await authResponse.json();
+      console.error('Supabase Auth error:', errorData);
+      return res.status(400).json({ error: errorData.error_description || 'Failed to update password' });
+    }
+
+    const userData = await authResponse.json();
+
+    // 2. Update password hash in users table
+    if (userData.email) {
+      const passwordHash = await bcrypt.hash(password, 10);
+      
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ password_hash: passwordHash })
+        .eq('email', userData.email.toLowerCase());
+
+      if (updateError) {
+        console.error('Error updating users table:', updateError);
+        // Don't fail - auth password was updated successfully
+      }
+
+      // Log the event
+      await supabase.from('event_logs').insert({
+        event_type: 'password_reset_completed',
+        email: userData.email.toLowerCase()
+      });
+    }
+
+    return res.status(200).json({ ok: true, message: 'Password updated successfully' });
+
+  } catch (error) {
+    console.error('Error in update-password:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -131,7 +208,7 @@ async function handleResetPassword(req, res) {
     return res.status(200).send(html);
   }
 
-  const html = getResetFormHtml(t, lang, process.env.SUPABASE_URL);
+  const html = getResetFormHtml(t, lang, process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '');
   res.setHeader('Content-Type', 'text/html');
   return res.status(200).send(html);
 }
@@ -164,7 +241,7 @@ function getErrorHtml(t, lang) {
 </html>`;
 }
 
-function getResetFormHtml(t, lang, supabaseUrl) {
+function getResetFormHtml(t, lang, supabaseUrl, anonKey) {
   return `<!DOCTYPE html>
 <html lang="${lang}">
 <head>
@@ -226,6 +303,7 @@ function getResetFormHtml(t, lang, supabaseUrl) {
         const btnSubmit = document.getElementById('btnSubmit');
         const formContainer = document.getElementById('formContainer');
         const successContainer = document.getElementById('successContainer');
+        const ANON_KEY = '${anonKey}';
         
         const hash = window.location.hash.substring(1);
         const params = new URLSearchParams(hash);
@@ -257,27 +335,27 @@ function getResetFormHtml(t, lang, supabaseUrl) {
             message.style.display = "none";
             
             try {
-                const response = await fetch('${supabaseUrl}/auth/v1/user', {
-                    method: 'PUT',
+                const response = await fetch('/api/password?action=update', {
+                    method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + accessToken,
-                        'apikey': accessToken
+                        'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ password })
+                    body: JSON.stringify({ password, access_token: accessToken })
                 });
                 
-                if (response.ok) {
+                const data = await response.json();
+                
+                if (response.ok && data.ok) {
                     formContainer.style.display = 'none';
                     successContainer.style.display = 'block';
                 } else {
-                    const data = await response.json();
-                    message.textContent = data.error_description || data.msg || "${t.errorGeneric}";
+                    message.textContent = data.error || "${t.errorGeneric}";
                     message.className = "message error";
                     btnSubmit.disabled = false;
                     btnSubmit.textContent = "${t.btnReset}";
                 }
             } catch (error) {
+                console.error('Error:', error);
                 message.textContent = "${t.errorGeneric}";
                 message.className = "message error";
                 btnSubmit.disabled = false;
