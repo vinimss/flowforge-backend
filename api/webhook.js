@@ -14,6 +14,46 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
+// ---------- Helpers ----------
+function _toEpochSeconds(n) {
+  const v = Number(n);
+  return Number.isFinite(v) && v > 0 ? v : null;
+}
+
+function _dateFromEpochSeconds(sec) {
+  const s = _toEpochSeconds(sec);
+  if (!s) return null;
+  const d = new Date(s * 1000);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+// Stripe às vezes entrega um "subscription" parcial em certos eventos.
+// Pra não perder o expires_at, sempre tenta garantir os campos via retrieve().
+async function getCurrentPeriodEndDate(subscription) {
+  if (!subscription?.id) return null;
+
+  // 1) tenta direto do payload do evento
+  let d = _dateFromEpochSeconds(subscription.current_period_end);
+  if (d) return d;
+
+  // 2) fallback: buscar no Stripe
+  try {
+    const full = await stripe.subscriptions.retrieve(subscription.id);
+    d = _dateFromEpochSeconds(full?.current_period_end);
+    if (d) return d;
+
+    // 3) fallback extra: alguns estados/cancelamentos podem ter outros campos
+    return (
+      _dateFromEpochSeconds(full?.trial_end) ||
+      _dateFromEpochSeconds(full?.cancel_at) ||
+      _dateFromEpochSeconds(full?.ended_at) ||
+      null
+    );
+  } catch (e) {
+    return null;
+  }
+}
+
 // Desabilitar body parser do Next.js para webhooks
 export const config = {
   api: {
@@ -97,6 +137,11 @@ async function handleCheckoutComplete(session) {
   const email = session.metadata?.email || session.customer_email;
   const customerId = session.customer;
   const subscriptionId = session.subscription;
+
+  if (!subscriptionId) {
+    console.error('No subscription id in checkout session');
+    return;
+  }
   const fingerprint = session.metadata?.fingerprint;
   const ipAddress = session.metadata?.ip_address;
   const trialEligible = session.metadata?.trial_eligible === 'true';
@@ -200,15 +245,9 @@ async function handleSubscriptionUpdate(subscription) {
   const subscriptionId = subscription.id;
   const status = subscription.status;
   
-  // Validar current_period_end
-  let currentPeriodEnd = null;
-  if (subscription.current_period_end && !isNaN(subscription.current_period_end)) {
-    const tempDate = new Date(subscription.current_period_end * 1000);
-    if (!isNaN(tempDate.getTime())) {
-      currentPeriodEnd = tempDate;
-    }
-  }
-  
+  // Validar current_period_end (com fallback via Stripe retrieve)
+  const currentPeriodEnd = await getCurrentPeriodEndDate(subscription);
+
   // Validar canceled_at
   let canceledAt = null;
   if (subscription.canceled_at && !isNaN(subscription.canceled_at)) {
@@ -220,7 +259,7 @@ async function handleSubscriptionUpdate(subscription) {
 
   // Se não tem data de expiração válida, não atualiza
   if (!currentPeriodEnd) {
-    console.error('Invalid current_period_end for subscription:', subscriptionId);
+    console.error('Invalid current_period_end for subscription:', subscriptionId, 'status=', status);
     return;
   }
 
