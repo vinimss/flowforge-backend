@@ -100,7 +100,7 @@ export default async function handler(req, res) {
             <li><strong>Portability:</strong> Receive your data in a portable format</li>
             <li><strong>Objection:</strong> Object to certain data processing</li>
           </ul>
-          To exercise these rights, contact us via Discord: <a href="https://discord.com/invite/dURj8CgbR" target="_blank" rel="noopener noreferrer">Discord Support</a>`
+          To exercise these rights, contact us at support@flowforgepro.com`
         },
         {
           title: "8. Cookies and Local Storage",
@@ -120,11 +120,11 @@ export default async function handler(req, res) {
         },
         {
           title: "11. Changes to This Policy",
-          content: `We may update this Privacy Policy from time to time. We will post significant updates in our Discord support channel: <a href="https://discord.com/invite/dURj8CgbR" target="_blank" rel="noopener noreferrer">Discord Support</a>. Continued use of the Extension after changes constitutes acceptance of the updated policy.`
+          content: `We may update this Privacy Policy from time to time. We will notify you of significant changes by email. Continued use of the Extension after changes constitutes acceptance of the updated policy.`
         },
         {
           title: "12. Contact Us",
-          content: `For questions about this Privacy Policy or your data, contact us at: <a href="https://discord.com/invite/dURj8CgbR" target="_blank" rel="noopener noreferrer">Discord Support</a>`
+          content: `For questions about this Privacy Policy or your data, contact us at: <a href="mailto:support@flowforgepro.com">support@flowforgepro.com</a>`
         }
       ]
     },
@@ -218,7 +218,7 @@ export default async function handler(req, res) {
             <li><strong>Portabilidade:</strong> Receber seus dados em formato portátil</li>
             <li><strong>Objeção:</strong> Opor-se a determinado processamento de dados</li>
           </ul>
-          Para exercer esses direitos, entre em contato via Discord: <a href="https://discord.com/invite/dURj8CgbR" target="_blank" rel="noopener noreferrer">Suporte no Discord</a>`
+          Para exercer esses direitos, entre em contato pelo support@flowforgepro.com`
         },
         {
           title: "8. Cookies e Armazenamento Local",
@@ -238,11 +238,11 @@ export default async function handler(req, res) {
         },
         {
           title: "11. Alterações nesta Política",
-          content: `Podemos atualizar esta Política de Privacidade periodicamente. Publicaremos atualizações significativas no nosso Discord de suporte: <a href="https://discord.com/invite/dURj8CgbR" target="_blank" rel="noopener noreferrer">Suporte no Discord</a>. O uso continuado da Extensão após as alterações constitui aceitação da política atualizada.`
+          content: `Podemos atualizar esta Política de Privacidade periodicamente. Notificaremos você sobre alterações significativas por email. O uso continuado da Extensão após as alterações constitui aceitação da política atualizada.`
         },
         {
           title: "12. Contato",
-          content: `Para perguntas sobre esta Política de Privacidade ou seus dados, entre em contato pelo: <a href="https://discord.com/invite/dURj8CgbR" target="_blank" rel="noopener noreferrer">Discord Support</a>`
+          content: `Para perguntas sobre esta Política de Privacidade ou seus dados, entre em contato pelo: <a href="mailto:support@flowforgepro.com">support@flowforgepro.com</a>`
         }
       ]
     },
@@ -336,7 +336,7 @@ export default async function handler(req, res) {
             <li><strong>Portabilidad:</strong> Recibir sus datos en un formato portable</li>
             <li><strong>Objeción:</strong> Oponerse a cierto procesamiento de datos</li>
           </ul>
-          Para ejercer estos derechos, contáctenos vía Discord: <a href="https://discord.com/invite/dURj8CgbR" target="_blank" rel="noopener noreferrer">Soporte en Discord</a>`
+          Para ejercer estos derechos, contáctenos en support@flowforgepro.com`
         },
         {
           title: "8. Cookies y Almacenamiento Local",
@@ -356,11 +356,11 @@ export default async function handler(req, res) {
         },
         {
           title: "11. Cambios a esta Política",
-          content: `Podemos actualizar esta Política de Privacidad periódicamente. Publicaremos actualizaciones importantes en nuestro Discord de soporte: <a href="https://discord.com/invite/dURj8CgbR" target="_blank" rel="noopener noreferrer">Soporte en Discord</a>. El uso continuado de la Extensión después de los cambios constituye la aceptación de la política actualizada.`
+          content: `Podemos actualizar esta Política de Privacidad periódicamente. Le notificaremos sobre cambios significativos por correo electrónico. El uso continuado de la Extensión después de los cambios constituye la aceptación de la política actualizada.`
         },
         {
           title: "12. Contacto",
-          content: `Para preguntas sobre esta Política de Privacidad o sus datos, contáctenos en: <a href="https://discord.com/invite/dURj8CgbR" target="_blank" rel="noopener noreferrer">Discord Support</a>`
+          content: `Para preguntas sobre esta Política de Privacidad o sus datos, contáctenos en: <a href="mailto:support@flowforgepro.com">support@flowforgepro.com</a>`
         }
       ]
     }
