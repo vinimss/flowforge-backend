@@ -71,7 +71,7 @@ export default async function handler(req, res) {
         },
         {
           title: "10. Modifications",
-          content: `We reserve the right to modify these Terms at any time. Continued use of the Extension after changes constitutes acceptance of the new Terms. We will notify users of significant changes via email.`
+          content: `We reserve the right to modify these Terms at any time. Continued use of the Extension after changes constitutes acceptance of the new Terms. We will post significant updates in our Discord support channel: <a href="https://discord.com/invite/dURj8CgbR" target="_blank" rel="noopener noreferrer">Discord Support</a>.`
         },
         {
           title: "11. Termination",
@@ -79,7 +79,7 @@ export default async function handler(req, res) {
         },
         {
           title: "12. Contact",
-          content: `For questions about these Terms, please contact us at: <a href="mailto:support@flowforgepro.com">support@flowforgepro.com</a>`
+          content: `For questions about these Terms, please contact us at: <a href="https://discord.com/invite/dURj8CgbR" target="_blank" rel="noopener noreferrer">Discord Support</a>`
         }
       ]
     },
@@ -144,7 +144,7 @@ export default async function handler(req, res) {
         },
         {
           title: "10. Modificações",
-          content: `Reservamo-nos o direito de modificar estes Termos a qualquer momento. O uso continuado da Extensão após alterações constitui aceitação dos novos Termos. Notificaremos os usuários sobre alterações significativas por email.`
+          content: `Reservamo-nos o direito de modificar estes Termos a qualquer momento. O uso continuado da Extensão após alterações constitui aceitação dos novos Termos. Publicaremos atualizações significativas no nosso Discord de suporte: <a href="https://discord.com/invite/dURj8CgbR" target="_blank" rel="noopener noreferrer">Suporte no Discord</a>.`
         },
         {
           title: "11. Rescisão",
@@ -152,7 +152,7 @@ export default async function handler(req, res) {
         },
         {
           title: "12. Contato",
-          content: `Para perguntas sobre estes Termos, entre em contato conosco em: <a href="mailto:support@flowforgepro.com">support@flowforgepro.com</a>`
+          content: `Para perguntas sobre estes Termos, entre em contato conosco em: <a href="https://discord.com/invite/dURj8CgbR" target="_blank" rel="noopener noreferrer">Discord Support</a>`
         }
       ]
     },
@@ -217,7 +217,7 @@ export default async function handler(req, res) {
         },
         {
           title: "10. Modificaciones",
-          content: `Nos reservamos el derecho de modificar estos Términos en cualquier momento. El uso continuado de la Extensión después de los cambios constituye la aceptación de los nuevos Términos. Notificaremos a los usuarios sobre cambios significativos por correo electrónico.`
+          content: `Nos reservamos el derecho de modificar estos Términos en cualquier momento. El uso continuado de la Extensión después de los cambios constituye la aceptación de los nuevos Términos. Publicaremos actualizaciones importantes en nuestro Discord de soporte: <a href="https://discord.com/invite/dURj8CgbR" target="_blank" rel="noopener noreferrer">Soporte en Discord</a>.`
         },
         {
           title: "11. Terminación",
@@ -225,7 +225,7 @@ export default async function handler(req, res) {
         },
         {
           title: "12. Contacto",
-          content: `Para preguntas sobre estos Términos, contáctenos en: <a href="mailto:support@flowforgepro.com">support@flowforgepro.com</a>`
+          content: `Para preguntas sobre estos Términos, contáctenos en: <a href="https://discord.com/invite/dURj8CgbR" target="_blank" rel="noopener noreferrer">Discord Support</a>`
         }
       ]
     }
