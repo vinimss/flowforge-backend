@@ -22,7 +22,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { email, password, verification_code, terms_accepted } = req.body;
+    const { email, password, terms_accepted } = req.body;
 
     // Validações
     if (!email || !password) {
@@ -32,41 +32,11 @@ export default async function handler(req, res) {
     if (password.length < 6) {
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
-
-    if (!verification_code) {
-      return res.status(400).json({ error: 'Verification code is required' });
-    }
-
     if (!terms_accepted) {
       return res.status(400).json({ error: 'You must accept the terms and conditions' });
     }
 
-    // Verificar se o código foi validado
-    const { data: verification, error: verifyError } = await supabase
-      .from('email_verifications')
-      .select('*')
-      .eq('email', email.toLowerCase())
-      .eq('code', verification_code)
-      .eq('verified', true)
-      .single();
-
-    if (verifyError || !verification) {
-      return res.status(400).json({ 
-        error: 'email_not_verified',
-        message: 'Please verify your email first' 
-      });
-    }
-
-    // Verificar se email já existe
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('id')
-      .eq('email', email.toLowerCase())
-      .single();
-
-    if (existingUser) {
-      return res.status(400).json({ error: 'Email already registered' });
-    }
+    // (sem verificação por código)
 
     // Criar usuário no Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -99,13 +69,6 @@ export default async function handler(req, res) {
       await supabase.auth.admin.deleteUser(userId);
       return res.status(500).json({ error: 'Failed to create user' });
     }
-
-    // Deletar código de verificação usado
-    await supabase
-      .from('email_verifications')
-      .delete()
-      .eq('email', email.toLowerCase());
-
     // Gerar token de sessão
     const sessionToken = uuidv4();
 
