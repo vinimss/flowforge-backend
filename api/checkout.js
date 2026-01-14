@@ -11,7 +11,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2023-10-16',
 });
 
-const PRICE_ID = 'price_1SnXUmA6WnMHKTVrtOuxsfPe';
+const PRICE_ID = 'price_1SpbRgA6WnMHKTVrW6XYt7ZE';
 const TRIAL_DAYS = 1;
 const MAX_TRIALS_PER_IP = 3;
 
