@@ -27,7 +27,7 @@ export default async function handler(req, res) {
         {
           title: "3. Subscription and Payments",
           content: `<ul>
-            <li>The Extension offers a <strong>1-day free trial</strong>, followed by a monthly subscription of <strong>$9.90 USD</strong>.</li>
+            <li>The Extension offers a <strong>1-day free trial</strong>, followed by a monthly subscription of <strong>R$49.90 BRL</strong>.</li>
             <li>The free trial is limited to one per device. Attempting to circumvent this limitation may result in account termination.</li>
             <li>Payments are processed securely through Stripe.</li>
             <li>Subscription automatically renews monthly until cancelled.</li>
