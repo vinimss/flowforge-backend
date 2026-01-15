@@ -118,7 +118,7 @@ export default async function handler(req, res) {
         {
           title: "3. Assinatura e Pagamentos",
           content: `<ul>
-            <li>A Extensão oferece um <strong>teste grátis de 1 dia</strong>, seguido por uma assinatura mensal de <strong>$9,90 USD</strong>.</li>
+            <li>A Extensão oferece um <strong>teste grátis de 1 dia</strong>, seguido por uma assinatura mensal de <strong>R$49,90 BRL</strong>.</li>
             <li>O teste grátis é limitado a um por dispositivo. Tentar contornar essa limitação pode resultar no encerramento da conta.</li>
             <li>Os pagamentos são processados de forma segura através do Stripe.</li>
             <li>A assinatura renova automaticamente mensalmente até ser cancelada.</li>
@@ -209,7 +209,7 @@ export default async function handler(req, res) {
         {
           title: "3. Suscripción y Pagos",
           content: `<ul>
-            <li>La Extensión ofrece una <strong>prueba gratis de 1 día</strong>, seguida de una suscripción mensual de <strong>$9.90 USD</strong>.</li>
+            <li>La Extensión ofrece una <strong>prueba gratis de 1 día</strong>, seguida de una suscripción mensual de <strong>R$49.90 BRL</strong>.</li>
             <li>La prueba gratis está limitada a una por dispositivo. Intentar eludir esta limitación puede resultar en la terminación de la cuenta.</li>
             <li>Los pagos se procesan de forma segura a través de Stripe.</li>
             <li>La suscripción se renueva automáticamente mensualmente hasta que se cancele.</li>
