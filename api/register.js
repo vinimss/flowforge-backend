@@ -168,18 +168,23 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
+// Helper para resposta com CORS
+function jsonResponse(res, status, data) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  return res.status(status).json(data);
+}
+
 export default async function handler(req, res) {
-  // CORS
+  // CORS preflight
   if (req.method === 'OPTIONS') {
-    return res.status(200)
-      .setHeader('Access-Control-Allow-Origin', '*')
-      .setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-      .setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-      .end();
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    return res.status(200).end();
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed', ok: false });
+    return jsonResponse(res, 405, { error: 'Method not allowed', ok: false });
   }
 
   try {
@@ -189,13 +194,13 @@ export default async function handler(req, res) {
     
     // Validar formato do email
     if (!EMAIL_RE.test(emailNorm)) {
-      return res.status(400).json({ ok: false, error: "Invalid email format" });
+      return jsonResponse(res, 400, { ok: false, error: "Invalid email format" });
     }
 
     // Verificar typo no domínio
     const suggestedDomain = suggestEmailDomainFix(emailNorm);
     if (suggestedDomain) {
-      return res.status(400).json({ 
+      return jsonResponse(res, 400, { 
         ok: false, 
         error: "Email domain looks wrong", 
         code: "EMAIL_DOMAIN_TYPO", 
@@ -207,7 +212,7 @@ export default async function handler(req, res) {
     // PROTEÇÃO 1: Bloquear emails temporários
     // ============================================
     if (isDisposableEmail(emailNorm)) {
-      return res.status(400).json({ 
+      return jsonResponse(res, 400, { 
         ok: false, 
         error: "Temporary/disposable emails are not allowed. Please use a real email address.",
         code: "DISPOSABLE_EMAIL"
@@ -215,15 +220,15 @@ export default async function handler(req, res) {
     }
 
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required', ok: false });
+      return jsonResponse(res, 400, { error: 'Email and password are required', ok: false });
     }
 
     if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters', ok: false });
+      return jsonResponse(res, 400, { error: 'Password must be at least 6 characters', ok: false });
     }
 
     if (!terms_accepted) {
-      return res.status(400).json({ error: 'You must accept the terms and conditions', ok: false });
+      return jsonResponse(res, 400, { error: 'You must accept the terms and conditions', ok: false });
     }
 
     const emailLower = email.toLowerCase().trim();
@@ -251,7 +256,7 @@ export default async function handler(req, res) {
         },
       });
 
-      return res.status(400).json({ 
+      return jsonResponse(res, 400, { 
         ok: false, 
         error: "Registration is not available from this network. Please subscribe to continue.",
         code: "IP_BLOCKED"
@@ -319,7 +324,7 @@ export default async function handler(req, res) {
           },
         });
 
-        return res.status(400).json({ 
+        return jsonResponse(res, 400, { 
           ok: false, 
           error: "A free trial has already been used on this device. Please subscribe to continue.",
           code: "TRIAL_ALREADY_USED"
@@ -335,7 +340,7 @@ export default async function handler(req, res) {
       .single();
 
     if (existingUser) {
-      return res.status(400).json({ error: 'Email already registered', ok: false });
+      return jsonResponse(res, 400, { error: 'Email already registered', ok: false });
     }
 
     // 1) Create user in Supabase Auth (needed for password reset emails)
@@ -347,7 +352,7 @@ export default async function handler(req, res) {
 
     if (authError || !authData?.user?.id) {
       console.error('Error creating auth user:', authError);
-      return res.status(400).json({ error: authError?.message || 'Failed to create user', ok: false });
+      return jsonResponse(res, 400, { error: authError?.message || 'Failed to create user', ok: false });
     }
 
     const userId = authData.user.id;
@@ -369,7 +374,7 @@ export default async function handler(req, res) {
     if (userError) {
       console.error('Error creating user record:', userError);
       await supabase.auth.admin.deleteUser(userId);
-      return res.status(500).json({ error: 'Failed to create user', ok: false });
+      return jsonResponse(res, 500, { error: 'Failed to create user', ok: false });
     }
 
     // 3) Create session (token used by license-status)
@@ -439,7 +444,7 @@ export default async function handler(req, res) {
     const daysLeft = Math.ceil((trialExpiresAt - now) / (1000 * 60 * 60 * 24));
 
     res.setHeader('Access-Control-Allow-Origin', '*');
-    return res.status(200).json({
+    return jsonResponse(res, 200, {
       ok: true,
       user: { id: userId, email: emailLower },
       token: sessionToken,
@@ -456,6 +461,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error in register:', error);
-    return res.status(500).json({ error: 'Internal server error', ok: false });
+    return jsonResponse(res, 500, { error: 'Internal server error', ok: false });
   }
 }
