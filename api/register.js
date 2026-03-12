@@ -281,13 +281,15 @@ export default async function handler(req, res) {
         // Se já tentou 5+ vezes, bloqueia o IP também
         if (attemptCount >= 4) {
           // Adicionar IP à blocklist
-          await supabase.from('blocked_ips').insert({
-            ip_address: ipAddress,
-            reason: 'excessive_trial_abuse',
-            fingerprint: fingerprint,
-            attempt_count: attemptCount + 1,
-            created_at: new Date().toISOString(),
-          }).catch(() => {}); // Ignora se já existe
+          try {
+            await supabase.from('blocked_ips').insert({
+              ip_address: ipAddress,
+              reason: 'excessive_trial_abuse',
+              fingerprint: fingerprint,
+              attempt_count: attemptCount + 1,
+              created_at: new Date().toISOString(),
+            });
+          } catch (e) { /* Ignora se já existe */ }
 
           await supabase.from('event_logs').insert({
             event_type: 'ip_blocked_for_abuse',
@@ -303,13 +305,15 @@ export default async function handler(req, res) {
         }
 
         // Registrar mais uma tentativa
-        await supabase.from('used_trial_fingerprints').insert({
-          fingerprint: fingerprint,
-          user_id: null, // Não criou conta
-          ip_address: ipAddress,
-          is_blocked_attempt: true,
-          created_at: new Date().toISOString(),
-        }).catch(() => {});
+        try {
+          await supabase.from('used_trial_fingerprints').insert({
+            fingerprint: fingerprint,
+            user_id: null, // Não criou conta
+            ip_address: ipAddress,
+            is_blocked_attempt: true,
+            created_at: new Date().toISOString(),
+          });
+        } catch (e) { /* Ignora erro */ }
 
         // Log tentativa de abuso
         await supabase.from('event_logs').insert({
@@ -414,14 +418,16 @@ export default async function handler(req, res) {
     // SALVAR FINGERPRINT NA LISTA DE USADOS
     // ============================================
     if (fingerprint) {
-      await supabase.from('used_trial_fingerprints').insert({
-        fingerprint: fingerprint,
-        user_id: userId,
-        ip_address: ipAddress,
-        created_at: new Date().toISOString(),
-      }).catch(err => {
-        console.log('Note: Could not save fingerprint:', err.message);
-      });
+      try {
+        await supabase.from('used_trial_fingerprints').insert({
+          fingerprint: fingerprint,
+          user_id: userId,
+          ip_address: ipAddress,
+          created_at: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.log('Note: Could not save fingerprint:', err?.message);
+      }
     }
 
     // Log event
