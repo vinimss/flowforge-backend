@@ -12,18 +12,23 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 });
 
 const PRICE_ID = 'price_1SpbRgA6WnMHKTVrW6XYt7ZE';
-const TRIAL_DAYS = 1;
-const MAX_TRIALS_PER_IP = 3;
+
+// Helper para adicionar CORS headers
+function corsHeaders(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  return res;
+}
 
 export default async function handler(req, res) {
-  // CORS
+  // CORS preflight
   if (req.method === 'OPTIONS') {
-    return res.status(200)
-      .setHeader('Access-Control-Allow-Origin', '*')
-      .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-      .setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-      .end();
+    return corsHeaders(res).status(200).end();
   }
+
+  // Adiciona CORS em todas as respostas
+  corsHeaders(res);
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed', ok: false });
@@ -54,7 +59,7 @@ export default async function handler(req, res) {
 
     const user = session.users;
 
-    // Verificar se ja tem licenca ativa
+    // Verificar se ja tem licenca ativa (não trial)
     const { data: existingLicense } = await supabase
       .from('licenses')
       .select('*')
@@ -63,9 +68,10 @@ export default async function handler(req, res) {
 
     if (existingLicense) {
       const expiresAt = new Date(existingLicense.expires_at);
-      if (existingLicense.active && expiresAt > new Date()) {
+      // Só bloqueia se for assinatura ativa (não trial)
+      if (existingLicense.active && expiresAt > new Date() && existingLicense.plan_type !== 'trial') {
         return res.status(400).json({ 
-          error: 'You already have an active license', 
+          error: 'You already have an active subscription', 
           ok: false,
           license: {
             status: 'active',
@@ -73,46 +79,6 @@ export default async function handler(req, res) {
           }
         });
       }
-    }
-
-    // Verificar elegibilidade para trial
-    let trialEligible = true;
-    let trialBlockReason = null;
-
-    // 1. Verificar fingerprint (so conta se checkout foi completado)
-    if (fingerprint) {
-      const { data: existingFingerprint } = await supabase
-        .from('trial_fingerprints')
-        .select('*')
-        .eq('fingerprint', fingerprint)
-        .eq('checkout_completed', true)
-        .single();
-
-      if (existingFingerprint) {
-        trialEligible = false;
-        trialBlockReason = 'Device already used trial';
-      }
-    }
-
-    // 2. Verificar limite de trials por IP (so completados)
-    if (trialEligible) {
-      const { count } = await supabase
-        .from('trial_fingerprints')
-        .select('*', { count: 'exact', head: true })
-        .eq('ip_address', ipAddress)
-        .eq('checkout_completed', true)
-        .gte('used_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
-
-      if (count >= MAX_TRIALS_PER_IP) {
-        trialEligible = false;
-        trialBlockReason = 'Too many trials from this location';
-      }
-    }
-
-    // 3. Verificar se usuario ja usou trial
-    if (trialEligible && existingLicense?.trial_used) {
-      trialEligible = false;
-      trialBlockReason = 'Trial already used on this account';
     }
 
     // Buscar ou criar cliente Stripe
@@ -136,9 +102,17 @@ export default async function handler(req, res) {
         });
         stripeCustomerId = customer.id;
       }
+
+      // Atualiza licença com stripe_customer_id se existir
+      if (existingLicense) {
+        await supabase
+          .from('licenses')
+          .update({ stripe_customer_id: stripeCustomerId })
+          .eq('id', existingLicense.id);
+      }
     }
 
-    // Configurar checkout session
+    // Configurar checkout session (sem trial - trial já foi dado no registro)
     const checkoutConfig = {
       customer: stripeCustomerId,
       payment_method_types: ['card'],
@@ -156,7 +130,6 @@ export default async function handler(req, res) {
         email: user.email,
         fingerprint: fingerprint || 'unknown',
         ip_address: ipAddress,
-        trial_eligible: trialEligible ? 'true' : 'false',
       },
       subscription_data: {
         metadata: {
@@ -165,13 +138,6 @@ export default async function handler(req, res) {
         },
       },
     };
-
-    // Adicionar trial se elegivel
-    if (trialEligible) {
-      checkoutConfig.subscription_data.trial_period_days = TRIAL_DAYS;
-      // IMPORTANTE: NAO registra fingerprint aqui!
-      // O registro acontece no WEBHOOK apos pagamento confirmado
-    }
 
     // Criar sessao de checkout
     const checkoutSession = await stripe.checkout.sessions.create(checkoutConfig);
@@ -184,19 +150,15 @@ export default async function handler(req, res) {
       ip_address: ipAddress,
       details: { 
         checkout_session_id: checkoutSession.id,
-        trial_eligible: trialEligible,
-        trial_block_reason: trialBlockReason,
         fingerprint,
+        from_trial: existingLicense?.plan_type === 'trial',
       },
     });
 
-    res.setHeader('Access-Control-Allow-Origin', '*');
     return res.status(200).json({
       ok: true,
       checkout_url: checkoutSession.url,
       session_id: checkoutSession.id,
-      trial_eligible: trialEligible,
-      trial_block_reason: trialBlockReason,
     });
 
   } catch (error) {
