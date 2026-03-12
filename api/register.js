@@ -3,15 +3,31 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-;
 
 function normalizeEmail(e) {
   return String(e || "").trim().toLowerCase();
 }
 
-
-
-const COMMON_DOMAIN_TYPOS = {"hotmails.com": "hotmail.com", "hotmail.con": "hotmail.com", "hotmai.com": "hotmail.com", "gmal.com": "gmail.com", "gmial.com": "gmail.com", "gmai.com": "gmail.com", "gmail.con": "gmail.com", "outlok.com": "outlook.com", "outllok.com": "outlook.com", "outlook.con": "outlook.com", "yaho.com": "yahoo.com", "yahho.com": "yahoo.com", "yahoo.con": "yahoo.com", "iclud.com": "icloud.com", "icould.com": "icloud.com", "icloud.con": "icloud.com", "live.con": "live.com", "msn.con": "msn.com"};
+const COMMON_DOMAIN_TYPOS = {
+  "hotmails.com": "hotmail.com",
+  "hotmail.con": "hotmail.com",
+  "hotmai.com": "hotmail.com",
+  "gmal.com": "gmail.com",
+  "gmial.com": "gmail.com",
+  "gmai.com": "gmail.com",
+  "gmail.con": "gmail.com",
+  "outlok.com": "outlook.com",
+  "outllok.com": "outlook.com",
+  "outlook.con": "outlook.com",
+  "yaho.com": "yahoo.com",
+  "yahho.com": "yahoo.com",
+  "yahoo.con": "yahoo.com",
+  "iclud.com": "icloud.com",
+  "icould.com": "icloud.com",
+  "icloud.con": "icloud.com",
+  "live.con": "live.com",
+  "msn.con": "msn.com"
+};
 
 function suggestEmailDomainFix(email) {
   const parts = String(email || "").split("@");
@@ -19,8 +35,6 @@ function suggestEmailDomainFix(email) {
   const domain = parts[1].toLowerCase();
   return COMMON_DOMAIN_TYPOS[domain] || null;
 }
-
-
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -45,15 +59,22 @@ export default async function handler(req, res) {
     const { email, password, fingerprint, terms_accepted } = req.body || {};
 
     const emailNorm = normalizeEmail(email);
+    
+    // Valida formato do email
     if (!EMAIL_RE.test(emailNorm)) {
       return res.status(400).json({ ok: false, error: "Invalid email format" });
+    }
 
+    // Verifica typos comuns no domínio
     const suggestedDomain = suggestEmailDomainFix(emailNorm);
     if (suggestedDomain) {
-      return res.status(400).json({ ok: false, error: "Email domain looks wrong", code: "EMAIL_DOMAIN_TYPO", suggestion: suggestedDomain });
+      return res.status(400).json({ 
+        ok: false, 
+        error: "Email domain looks wrong", 
+        code: "EMAIL_DOMAIN_TYPO", 
+        suggestion: suggestedDomain 
+      });
     }
-    }
-
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required', ok: false });
@@ -130,6 +151,29 @@ export default async function handler(req, res) {
       is_active: true,
     });
 
+    // ============================================
+    // CRIAR LICENÇA TRIAL DE 15 DIAS
+    // ============================================
+    const trialExpiresAt = new Date();
+    trialExpiresAt.setDate(trialExpiresAt.getDate() + 15); // +15 dias
+
+    const { error: licenseError } = await supabase
+      .from('licenses')
+      .insert({
+        user_id: userId,
+        email: emailLower,
+        plan_type: 'trial',
+        active: true,
+        trial_used: true,
+        expires_at: trialExpiresAt.toISOString(),
+        created_at: new Date().toISOString(),
+      });
+
+    if (licenseError) {
+      console.error('Error creating trial license:', licenseError);
+      // Não falha o registro, apenas loga o erro
+    }
+
     // Log event
     await supabase.from('event_logs').insert({
       event_type: 'user_registered',
@@ -140,16 +184,29 @@ export default async function handler(req, res) {
         terms_accepted: true,
         email_verified: true,
         fingerprint: fingerprint || null,
+        trial_created: !licenseError,
+        trial_expires_at: trialExpiresAt.toISOString(),
       },
     });
+
+    // Calcular dias restantes do trial
+    const now = new Date();
+    const daysLeft = Math.ceil((trialExpiresAt - now) / (1000 * 60 * 60 * 24));
 
     res.setHeader('Access-Control-Allow-Origin', '*');
     return res.status(200).json({
       ok: true,
       user: { id: userId, email: emailLower },
       token: sessionToken,
-      needs_checkout: true,
-      has_license: false,
+      needs_checkout: false,  // Trial ativo, não precisa de checkout imediato
+      has_license: true,
+      license: {
+        status: 'active',
+        plan_type: 'trial',
+        expires_at: trialExpiresAt.toISOString(),
+        days_left: daysLeft,
+        trial_used: true,
+      },
     });
 
   } catch (error) {
