@@ -6,15 +6,22 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
+// Helper para adicionar CORS headers
+function corsHeaders(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  return res;
+}
+
 export default async function handler(req, res) {
-  // CORS
+  // CORS preflight
   if (req.method === 'OPTIONS') {
-    return res.status(200)
-      .setHeader('Access-Control-Allow-Origin', '*')
-      .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-      .setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-      .end();
+    return corsHeaders(res).status(200).end();
   }
+
+  // Adiciona CORS em todas as respostas
+  corsHeaders(res);
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed', ok: false });
@@ -97,7 +104,6 @@ export default async function handler(req, res) {
       })
       .eq('session_token', token);
 
-    res.setHeader('Access-Control-Allow-Origin', '*');
     return res.status(200).json({
       ok: true,
       valid: true,
