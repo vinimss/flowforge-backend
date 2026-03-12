@@ -115,13 +115,15 @@ export default async function handler(req, res) {
     const now = new Date();
     const expiresAt = new Date(license.expires_at);
     const daysLeft = Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24));
+    const isTrial = license.plan_type === 'trial';
 
     let status = 'expired';
     let canUse = false;
 
     if (license.active && expiresAt > now) {
       canUse = true;
-      if (daysLeft <= 3) {
+      // Para trials: nunca mostrar "expiring", só "active"
+      if (!isTrial && daysLeft <= 3) {
         status = 'expiring';
       } else {
         status = 'active';
