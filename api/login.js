@@ -10,25 +10,30 @@ const supabase = createClient(
 
 const MAX_SESSIONS_PER_IP = 5;  // <-- Limite de sessões por IP
 
+// Helper para resposta com CORS
+function jsonResponse(res, status, data) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  return res.status(status).json(data);
+}
+
 export default async function handler(req, res) {
-  // CORS
+  // CORS preflight
   if (req.method === 'OPTIONS') {
-    return res.status(200)
-      .setHeader('Access-Control-Allow-Origin', '*')
-      .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-      .setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-      .end();
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    return res.status(200).end();
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed', ok: false });
+    return jsonResponse(res, 405, { error: 'Method not allowed', ok: false });
   }
 
   try {
     const { email, password, fingerprint } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password required', ok: false });
+      return jsonResponse(res, 400, { error: 'Email and password required', ok: false });
     }
 
     const emailLower = email.toLowerCase().trim();
@@ -44,13 +49,13 @@ export default async function handler(req, res) {
       .single();
 
     if (!user || userError) {
-      return res.status(401).json({ error: 'Invalid credentials', ok: false });
+      return jsonResponse(res, 401, { error: 'Invalid credentials', ok: false });
     }
 
     // Verificar senha
     const validPassword = await bcrypt.compare(password, user.password_hash);
     if (!validPassword) {
-      return res.status(401).json({ error: 'Invalid credentials', ok: false });
+      return jsonResponse(res, 401, { error: 'Invalid credentials', ok: false });
     }
 
     // ============================================
@@ -222,8 +227,7 @@ export default async function handler(req, res) {
       }
     }
 
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    return res.status(200).json({
+    return jsonResponse(res, 200, {
       ok: true,
       user: {
         id: user.id,
@@ -237,6 +241,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ error: 'Internal server error', ok: false });
+    return jsonResponse(res, 500, { error: 'Internal server error', ok: false });
   }
 }
