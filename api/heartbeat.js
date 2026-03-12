@@ -55,25 +55,25 @@ export default async function handler(req, res) {
       });
     }
 
-    // Verificar conflito de IP
-    const { data: otherActiveSessions } = await supabase
+    // Verificar conflito de IP - apenas sessões de OUTROS IPs
+    // Permitimos múltiplas sessões do MESMO IP (até 5 fingerprints)
+    const { data: otherIpSessions } = await supabase
       .from('user_sessions')
       .select('*')
       .eq('user_id', session.user_id)
       .eq('is_active', true)
       .neq('session_token', token)
-      .neq('ip_address', ipAddress);
+      .neq('ip_address', ipAddress); // Apenas sessões de IPs DIFERENTES
 
-    if (otherActiveSessions && otherActiveSessions.length > 0) {
-      // Há outra sessão ativa de outro IP - esta sessão foi "roubada"
-      // Desativar sessões antigas (manter a mais recente)
+    if (otherIpSessions && otherIpSessions.length > 0) {
+      // Há sessões ativas de outros IPs - verificar qual é mais recente
       const thisSessionTime = new Date(session.last_heartbeat || session.created_at);
       
-      for (const otherSession of otherActiveSessions) {
+      for (const otherSession of otherIpSessions) {
         const otherTime = new Date(otherSession.last_heartbeat || otherSession.created_at);
         
         if (otherTime > thisSessionTime) {
-          // Outra sessão é mais recente - desativar esta
+          // Outra sessão (de outro IP) é mais recente - desativar esta
           await supabase
             .from('user_sessions')
             .update({ is_active: false })
@@ -88,11 +88,11 @@ export default async function handler(req, res) {
         }
       }
 
-      // Esta sessão é mais recente - desativar as outras
+      // Esta sessão é mais recente - desativar as sessões de outros IPs
       await supabase
         .from('user_sessions')
         .update({ is_active: false })
-        .in('id', otherActiveSessions.map(s => s.id));
+        .in('id', otherIpSessions.map(s => s.id));
     }
 
     // Atualizar heartbeat e IP

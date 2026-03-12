@@ -58,31 +58,43 @@ export default async function handler(req, res) {
       });
     }
 
-    // Verificar se IP mudou (possível compartilhamento)
+    // Verificar se IP mudou E se há sessão de OUTRO IP (compartilhamento)
+    // Permitimos múltiplas sessões do MESMO IP (até 5)
     if (session.ip_address !== ipAddress) {
-      // Verificar se há outra sessão ativa do mesmo usuário
-      const { data: otherSessions } = await supabase
+      // Verificar se há outra sessão ativa de OUTRO IP
+      const { data: otherIpSessions } = await supabase
         .from('user_sessions')
         .select('*')
         .eq('user_id', session.user_id)
         .eq('is_active', true)
-        .neq('session_token', token);
+        .neq('session_token', token)
+        .neq('ip_address', session.ip_address); // Sessões de IPs diferentes do original
 
-      if (otherSessions && otherSessions.length > 0) {
-        // Desativar esta sessão - outra sessão tomou conta
-        await supabase
-          .from('user_sessions')
-          .update({ is_active: false })
-          .eq('session_token', token);
+      if (otherIpSessions && otherIpSessions.length > 0) {
+        // Há sessão ativa de outro IP - esta sessão foi "roubada"
+        // A sessão mais recente ganha
+        const thisSessionTime = new Date(session.last_heartbeat || session.created_at);
+        
+        for (const otherSession of otherIpSessions) {
+          const otherTime = new Date(otherSession.last_heartbeat || otherSession.created_at);
+          
+          if (otherTime > thisSessionTime) {
+            // Outra sessão é mais recente - desativar esta
+            await supabase
+              .from('user_sessions')
+              .update({ is_active: false })
+              .eq('session_token', token);
 
-        return res.status(401).json({
-          error: 'Session terminated - logged in from another location',
-          ok: false,
-          code: 'SESSION_CONFLICT'
-        });
+            return res.status(401).json({
+              error: 'Session terminated - logged in from another location',
+              ok: false,
+              code: 'SESSION_CONFLICT'
+            });
+          }
+        }
       }
 
-      // Atualizar IP da sessão (usuário mudou de rede)
+      // Se chegou aqui, esta sessão é válida - apenas atualizar o IP
       await supabase
         .from('user_sessions')
         .update({ ip_address: ipAddress })
