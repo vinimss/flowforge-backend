@@ -80,12 +80,12 @@ export default async function handler(req, res) {
     event = stripe.webhooks.constructEvent(buf, sig, webhookSecret);
   } catch (err) {
     console.error('Webhook signature verification failed:', err.message);
-    return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+    return res.status(400).json({ error: 'Webhook signature verification failed' });
   }
 
-  console.log('Webhook event received:', event.type);
-
   try {
+    console.log('Processing event:', event.type);
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
@@ -93,7 +93,6 @@ export default async function handler(req, res) {
         break;
       }
 
-      case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object;
         await handleSubscriptionUpdate(subscription);
@@ -133,109 +132,90 @@ export default async function handler(req, res) {
 async function handleCheckoutComplete(session) {
   console.log('Processing checkout.session.completed:', session.id);
 
-  const userId = session.metadata?.user_id;
-  const email = session.metadata?.email || session.customer_email;
   const customerId = session.customer;
+  const customerEmail = session.customer_details?.email || session.customer_email;
   const subscriptionId = session.subscription;
 
-  if (!subscriptionId) {
-    console.error('No subscription id in checkout session');
-    return;
-  }
-  const fingerprint = session.metadata?.fingerprint;
-  const ipAddress = session.metadata?.ip_address;
-  const trialEligible = session.metadata?.trial_eligible === 'true';
-
-  if (!userId) {
-    console.error('No user_id in checkout session metadata');
+  if (!subscriptionId || !customerEmail) {
+    console.error('Missing subscriptionId or email in checkout session');
     return;
   }
 
-  // Buscar detalhes da subscription
+  // Buscar subscription do Stripe para pegar datas
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
   
-  const isTrialing = subscription.status === 'trialing';
-  const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+  const currentPeriodEnd = await getCurrentPeriodEndDate(subscription);
+  if (!currentPeriodEnd) {
+    console.error('Could not determine expiration date from checkout subscription:', subscriptionId);
+    return;
+  }
 
-  // Verificar se já existe licença para este usuário
+  const isTrial = subscription.status === 'trialing';
+
+  // Buscar usuário pelo email
+  const { data: user } = await supabase
+    .from('users')
+    .select('id')
+    .eq('email', customerEmail.toLowerCase())
+    .single();
+
+  if (!user) {
+    console.log('User not found for email:', customerEmail);
+    return;
+  }
+
+  // Verificar se já existe licença
   const { data: existingLicense } = await supabase
     .from('licenses')
     .select('*')
-    .eq('user_id', userId)
+    .eq('user_id', user.id)
     .single();
-
-  const licenseData = {
-    user_id: userId,
-    email: email,
-    active: true,
-    expires_at: currentPeriodEnd.toISOString(),
-    stripe_customer_id: customerId,
-    stripe_subscription_id: subscriptionId,
-    plan_type: isTrialing ? 'trial' : 'monthly',
-    trial_used: isTrialing ? true : (existingLicense?.trial_used || false),
-  };
 
   if (existingLicense) {
     // Atualizar licença existente
     await supabase
       .from('licenses')
-      .update(licenseData)
+      .update({
+        active: true,
+        plan_type: isTrial ? 'trial' : 'monthly',
+        expires_at: currentPeriodEnd.toISOString(),
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscriptionId,
+      })
       .eq('id', existingLicense.id);
+
+    console.log('License updated from checkout:', existingLicense.id);
   } else {
     // Criar nova licença
-    await supabase.from('licenses').insert(licenseData);
-  }
-
-  // ============================================
-  // REGISTRAR FINGERPRINT AQUI (após pagamento confirmado!)
-  // ============================================
-  if (isTrialing && fingerprint && fingerprint !== 'unknown') {
-    // Verificar se já existe
-    const { data: existingFp } = await supabase
-      .from('trial_fingerprints')
-      .select('*')
-      .eq('fingerprint', fingerprint)
-      .single();
-
-    if (existingFp) {
-      // Atualizar para marcar como completado
-      await supabase
-        .from('trial_fingerprints')
-        .update({ 
-          checkout_completed: true,
-          email: email,
-        })
-        .eq('fingerprint', fingerprint);
-    } else {
-      // Inserir novo
-      await supabase.from('trial_fingerprints').insert({
-        fingerprint,
-        email: email,
-        ip_address: ipAddress || 'unknown',
-        user_agent: 'webhook',
-        checkout_completed: true,
+    await supabase
+      .from('licenses')
+      .insert({
+        user_id: user.id,
+        email: customerEmail.toLowerCase(),
+        active: true,
+        plan_type: isTrial ? 'trial' : 'monthly',
+        expires_at: currentPeriodEnd.toISOString(),
+        stripe_customer_id: customerId,
+        stripe_subscription_id: subscriptionId,
       });
-    }
 
-    console.log('Trial fingerprint registered: ' + fingerprint);
+    console.log('New license created from checkout');
   }
 
   // Log do evento
   await supabase.from('event_logs').insert({
     event_type: 'checkout_completed',
-    user_id: userId,
-    email: email,
+    user_id: user.id,
+    email: customerEmail.toLowerCase(),
     details: {
       checkout_session_id: session.id,
       subscription_id: subscriptionId,
       customer_id: customerId,
-      is_trialing: isTrialing,
+      is_trialing: isTrial,
       expires_at: currentPeriodEnd.toISOString(),
-      fingerprint_registered: isTrialing && fingerprint ? true : false,
+      fingerprint_registered: false,
     },
   });
-
-  console.log('License activated for user ' + userId + ', expires: ' + currentPeriodEnd);
 }
 
 async function handleSubscriptionUpdate(subscription) {
@@ -244,6 +224,14 @@ async function handleSubscriptionUpdate(subscription) {
   const customerId = subscription.customer;
   const subscriptionId = subscription.id;
   const status = subscription.status;
+  
+  // CORREÇÃO: Ignorar status "incomplete" para não sobrescrever "active"
+  // Status "incomplete" significa que o pagamento ainda está processando
+  // Não devemos desativar a licença nesse caso
+  if (status === 'incomplete' || status === 'incomplete_expired') {
+    console.log('Ignoring subscription update with status:', status);
+    return;
+  }
   
   // Validar current_period_end (com fallback via Stripe retrieve)
   const currentPeriodEnd = await getCurrentPeriodEndDate(subscription);
@@ -287,7 +275,10 @@ async function handleSubscriptionUpdate(subscription) {
   }
 
   // Atualizar baseado no status
-  const isActive = ['active', 'trialing'].includes(status);
+  // active, trialing = licença ativa
+  // past_due = ainda permite uso (Stripe vai tentar cobrar novamente)
+  // canceled, unpaid = licença inativa
+  const isActive = ['active', 'trialing', 'past_due'].includes(status);
   const planType = status === 'trialing' ? 'trial' : 'monthly';
 
   await supabase
@@ -314,7 +305,7 @@ async function handleSubscriptionUpdate(subscription) {
     },
   });
 
-  console.log('Subscription ' + subscriptionId + ' updated: status=' + status + ', canceled_at=' + canceledAt);
+  console.log('Subscription ' + subscriptionId + ' updated: status=' + status + ', active=' + isActive);
 }
 
 async function handleSubscriptionCanceled(subscription) {
@@ -332,7 +323,7 @@ async function handleSubscriptionCanceled(subscription) {
   if (license) {
     await supabase
       .from('licenses')
-      .update({
+      .update({ 
         active: false,
         canceled_at: new Date().toISOString(),
       })
@@ -348,7 +339,7 @@ async function handleSubscriptionCanceled(subscription) {
       },
     });
 
-    console.log('License deactivated for subscription ' + subscriptionId);
+    console.log('License deactivated for canceled subscription:', subscriptionId);
   }
 }
 
