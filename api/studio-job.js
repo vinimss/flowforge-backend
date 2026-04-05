@@ -6,12 +6,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
-function cors(res, req) {
-  const origin = req?.headers?.origin || '*';
-  res.setHeader('Access-Control-Allow-Origin', origin);
+function cors(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-studio-key');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
   return res;
 }
 
@@ -20,8 +18,8 @@ function json(res, status, data) {
 }
 
 export default async function handler(req, res) {
-  if (req.method === 'OPTIONS') return cors(res, req).status(200).end();
-  cors(res, req);
+  if (req.method === 'OPTIONS') return cors(res).status(200).end();
+  cors(res);
 
   if (req.method === 'POST') {
     const { studioKey, prompts, settings } = req.body;
