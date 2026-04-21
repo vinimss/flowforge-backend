@@ -6,7 +6,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
-// Helper para adicionar CORS headers
 function corsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -15,12 +14,9 @@ function corsHeaders(res) {
 }
 
 export default async function handler(req, res) {
-  // CORS preflight
   if (req.method === 'OPTIONS') {
     return corsHeaders(res).status(200).end();
   }
-
-  // Adiciona CORS em todas as respostas
   corsHeaders(res);
 
   if (req.method !== 'POST') {
@@ -34,8 +30,8 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Token required', ok: false });
     }
 
-    const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() 
-      || req.headers['x-real-ip'] 
+    const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim()
+      || req.headers['x-real-ip']
       || 'unknown';
 
     // Validar sessão
@@ -47,33 +43,74 @@ export default async function handler(req, res) {
       .single();
 
     if (!session || sessionError) {
-      return res.status(401).json({ 
-        ok: false, 
+      return res.status(401).json({
+        ok: false,
         valid: false,
         code: 'SESSION_INVALID',
         message: 'Session expired or invalid'
       });
     }
 
-    // Verificar conflito de IP - apenas sessões de OUTROS IPs
-    // Permitimos múltiplas sessões do MESMO IP (até 5 fingerprints)
+    // ── VERIFICAR LICENÇA ──────────────────────────────────
+    const { data: license } = await supabase
+      .from('licenses')
+      .select('*')
+      .eq('user_id', session.user_id)
+      .eq('active', true)
+      .single();
+
+    // Licença não existe ou inativa
+    if (!license) {
+      await supabase
+        .from('user_sessions')
+        .update({ is_active: false })
+        .eq('session_token', token);
+
+      return res.status(401).json({
+        ok: false,
+        valid: false,
+        code: 'LICENSE_INACTIVE',
+        message: 'No active license found'
+      });
+    }
+
+    // Licença expirada
+    if (new Date(license.expires_at) < new Date()) {
+      await supabase
+        .from('user_sessions')
+        .update({ is_active: false })
+        .eq('session_token', token);
+
+      await supabase
+        .from('licenses')
+        .update({ active: false })
+        .eq('id', license.id);
+
+      return res.status(401).json({
+        ok: false,
+        valid: false,
+        code: 'LICENSE_EXPIRED',
+        message: 'License has expired'
+      });
+    }
+    // ──────────────────────────────────────────────────────
+
+    // Verificar conflito de IP
     const { data: otherIpSessions } = await supabase
       .from('user_sessions')
       .select('*')
       .eq('user_id', session.user_id)
       .eq('is_active', true)
       .neq('session_token', token)
-      .neq('ip_address', ipAddress); // Apenas sessões de IPs DIFERENTES
+      .neq('ip_address', ipAddress);
 
     if (otherIpSessions && otherIpSessions.length > 0) {
-      // Há sessões ativas de outros IPs - verificar qual é mais recente
       const thisSessionTime = new Date(session.last_heartbeat || session.created_at);
       
       for (const otherSession of otherIpSessions) {
         const otherTime = new Date(otherSession.last_heartbeat || otherSession.created_at);
         
         if (otherTime > thisSessionTime) {
-          // Outra sessão (de outro IP) é mais recente - desativar esta
           await supabase
             .from('user_sessions')
             .update({ is_active: false })
@@ -88,17 +125,16 @@ export default async function handler(req, res) {
         }
       }
 
-      // Esta sessão é mais recente - desativar as sessões de outros IPs
       await supabase
         .from('user_sessions')
         .update({ is_active: false })
         .in('id', otherIpSessions.map(s => s.id));
     }
 
-    // Atualizar heartbeat e IP
+    // Atualizar heartbeat
     await supabase
       .from('user_sessions')
-      .update({ 
+      .update({
         last_heartbeat: new Date().toISOString(),
         ip_address: ipAddress,
       })
