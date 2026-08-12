@@ -403,6 +403,7 @@ export default async function handler(req, res) {
       .from('licenses')
       .insert({
         user_id: userId,
+        email: emailLower,
         plan_type: 'trial',
         active: true,
         trial_used: true,

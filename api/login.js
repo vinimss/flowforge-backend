@@ -150,11 +150,13 @@ export default async function handler(req, res) {
       sessionToken = crypto.randomBytes(32).toString('hex');
 
       // Buscar licença do usuário
-      const { data: license } = await supabase
+      const { data: licenseRows } = await supabase
         .from('licenses')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .order('expires_at', { ascending: false })
+        .limit(1);
+      const license = licenseRows?.[0] || null;
 
       // Criar nova sessão
       await supabase.from('user_sessions').insert({
@@ -169,11 +171,13 @@ export default async function handler(req, res) {
     }
 
     // Buscar licença do usuário
-    const { data: license } = await supabase
+    const { data: licenseRows2 } = await supabase
       .from('licenses')
       .select('*')
       .eq('user_id', user.id)
-      .single();
+      .order('expires_at', { ascending: false })
+      .limit(1);
+    const license = licenseRows2?.[0] || null;
 
     // Log do login
     await supabase.from('event_logs').insert({

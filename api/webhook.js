@@ -177,6 +177,7 @@ async function handleCheckoutComplete(session) {
       .from('licenses')
       .update({
         active: true,
+        email: customerEmail.toLowerCase(),
         plan_type: isTrial ? 'trial' : 'monthly',
         expires_at: currentPeriodEnd.toISOString(),
         stripe_customer_id: customerId,

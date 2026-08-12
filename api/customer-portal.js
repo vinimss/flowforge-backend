@@ -53,12 +53,15 @@ export default async function handler(req, res) {
 
     const user = session.users;
 
-    // Buscar licenca do usuario
-    const { data: license } = await supabase
+    // Buscar licenca do usuario (prioriza a com stripe_customer_id)
+    const { data: licenses } = await supabase
       .from('licenses')
       .select('*')
       .eq('user_id', user.id)
-      .single();
+      .order('expires_at', { ascending: false })
+      .limit(1);
+
+    const license = licenses?.[0] || null;
 
     if (!license || !license.stripe_customer_id) {
       return res.status(400).json({ 

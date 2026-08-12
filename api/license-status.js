@@ -103,12 +103,16 @@ export default async function handler(req, res) {
 
     const user = session.users;
 
-    // Buscar licença
-    const { data: license } = await supabase
+    // Buscar licença (prioriza licença com email preenchido e mais recente)
+    const { data: licenses } = await supabase
       .from('licenses')
       .select('*')
       .eq('user_id', user.id)
-      .single();
+      .eq('active', true)
+      .order('expires_at', { ascending: false })
+      .limit(1);
+
+    const license = licenses?.[0] || null;
 
     // Atualizar último heartbeat
     await supabase

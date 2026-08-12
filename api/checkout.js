@@ -60,11 +60,14 @@ export default async function handler(req, res) {
     const user = session.users;
 
     // Verificar se ja tem licenca ativa (não trial)
-    const { data: existingLicense } = await supabase
+    const { data: existingLicenses } = await supabase
       .from('licenses')
       .select('*')
       .eq('user_id', user.id)
-      .single();
+      .order('expires_at', { ascending: false })
+      .limit(1);
+
+    const existingLicense = existingLicenses?.[0] || null;
 
     if (existingLicense) {
       const expiresAt = new Date(existingLicense.expires_at);
